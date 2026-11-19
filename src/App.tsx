@@ -12,6 +12,7 @@ import AdminBebidas from "./pages/Admin/AdminBebidas";
 import ProductDetails from "./pages/ProductDetails/ProductDetails";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./layouts/AdminLayout";
+import { siteConfig } from "./config/site";
 
 import "./App.css";
 
@@ -33,6 +34,7 @@ function App() {
           index
           element={
             <main className="catalog-page">
+              <link rel="canonical" href={new URL("/", siteConfig.publicOrigin).href} />
               <Home search={search} />
             </main>
           }

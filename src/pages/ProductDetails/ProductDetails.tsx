@@ -2,10 +2,14 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ProductCard from "../../components/ProductCard/ProductCard";
+import { siteConfig } from "../../config/site";
 import { getProducts } from "../../services/product";
 import { useCart } from "../../contexts/useCart";
 import type { Product } from "../../types/Product";
+import ShareProduct from "./ShareProduct";
 import "./ProductDetails.css";
+
+const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function ProductDetails() {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +50,30 @@ export default function ProductDetails() {
   }, [id]);
 
   const product = products.find((item) => item.id === Number(id));
+  const description = product?.description?.trim();
+  const price = product ? currency.format(product.price) : "";
+
+  useEffect(() => {
+    if (!product) return;
+
+    const metaDescription = document.head.querySelector<HTMLMetaElement>('meta[name="description"]');
+    const previousTitle = document.title;
+    const previousDescription = metaDescription?.content ?? "";
+    const summary = description?.replace(/\s+/g, " ");
+    const excerpt = summary && summary.length > 140
+      ? `${summary.slice(0, 140).replace(/\s+\S*$/, "")}…`
+      : summary;
+
+    document.title = `${product.name} | ${siteConfig.name}`;
+    if (metaDescription) {
+      metaDescription.content = `${product.name} — ${price}. ${excerpt || "Confira a disponibilidade no catálogo do Código dos Bares."}`;
+    }
+
+    return () => {
+      document.title = previousTitle;
+      if (metaDescription) metaDescription.content = previousDescription;
+    };
+  }, [product, description, price]);
 
   if (loading) {
     return <main className="product-details-status">Carregando produto...</main>;
@@ -54,13 +82,14 @@ export default function ProductDetails() {
   if (error || !product) {
     return (
       <main className="product-details-status">
+        {!error && <meta name="robots" content="noindex" />}
         <p>{error || "Produto não encontrado."}</p>
         <Link to="/">Voltar ao catálogo</Link>
       </main>
     );
   }
 
-  const description = product.description?.trim();
+  const productUrl = new URL(`/produto/${product.id}`, siteConfig.publicOrigin).href;
   const relatedProducts = products
     .filter((item) => item.id !== product.id && item.category === product.category)
     .sort((first, second) => Number(second.quantity > 0) - Number(first.quantity > 0))
@@ -82,6 +111,7 @@ export default function ProductDetails() {
 
   return (
     <main className="product-details-page">
+      <link rel="canonical" href={productUrl} />
       <Link to="/" className="product-details-back">
         ← Voltar ao catálogo
       </Link>
@@ -102,12 +132,7 @@ export default function ProductDetails() {
 
           <h1>{product.name}</h1>
 
-          <strong className="product-details-price">
-            {product.price.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </strong>
+          <strong className="product-details-price">{price}</strong>
 
           <p className="product-details-stock" data-in-stock={product.quantity > 0}>
             {product.quantity > 0
@@ -127,6 +152,8 @@ export default function ProductDetails() {
                 ? "Limite de estoque no carrinho"
                 : "Adicionar ao carrinho"}
           </button>
+
+          <ShareProduct key={product.id} name={product.name} price={price} url={productUrl} />
 
           {description && (
             <section className="product-details-description">
