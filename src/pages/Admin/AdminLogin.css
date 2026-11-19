@@ -1,0 +1,119 @@
+.admin-login {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 24px;
+  max-width: none;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 32px 16px;
+  background: radial-gradient(
+    ellipse at 50% 25%,
+    var(--color-surface-hover),
+    var(--color-background) 65%
+  );
+  color: var(--color-text);
+}
+
+.admin-login-card {
+  width: min(100%, 440px);
+  padding: clamp(24px, 6vw, 40px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: 0 20px 48px rgb(0 0 0 / 24%);
+}
+
+.admin-login-heading {
+  display: grid;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.admin-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.admin-login-heading h1 {
+  margin: 0;
+  font-size: clamp(24px, 5vw, 30px);
+  line-height: 1.2;
+}
+
+.admin-login-form,
+.admin-login-field {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-login-field {
+  gap: 8px;
+}
+
+.admin-login-field label {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-login-field input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid #637a9c;
+  border-radius: var(--radius-button);
+  background: var(--color-background);
+  color: var(--color-text);
+  color-scheme: dark;
+}
+
+.admin-login-submit {
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: var(--radius-button);
+  background: var(--color-text);
+  color: var(--color-background);
+  font-weight: 700;
+}
+
+.admin-login-submit:hover:not(:disabled) {
+  background: var(--color-text-muted);
+}
+
+.admin-login-submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.admin-login :focus-visible {
+  outline: 2px solid #8faed8;
+  outline-offset: 3px;
+}
+
+.admin-login-error {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid #a65a6d;
+  border-radius: var(--radius-button);
+  background: #392337;
+  color: #ffd2da;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.admin-login-back {
+  padding: 8px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  text-underline-offset: 4px;
+}
+
+.admin-login-back:hover {
+  color: var(--color-text);
+}
