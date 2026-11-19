@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Outlet } from "react-router-dom";
 
 import Header from "./components/Header/Header";
 import Home from "./pages/Home/Home";
@@ -22,17 +22,23 @@ function App() {
     <Routes>
       {/* Catálogo público */}
       <Route
-        path="/"
         element={
           <>
             <Header search={search} onSearchChange={setSearch} />
-            <main>
-              <Home search={search} />
-            </main>
+            <Outlet />
           </>
         }
-      />
-      <Route path="/produto/:id" element={<ProductDetails />} />
+      >
+        <Route
+          index
+          element={
+            <main className="catalog-page">
+              <Home search={search} />
+            </main>
+          }
+        />
+        <Route path="/produto/:id" element={<ProductDetails />} />
+      </Route>
 
       {/* Login administrativo */}
       <Route

@@ -109,7 +109,7 @@ export default function ProductDetails() {
             })}
           </strong>
 
-          <p className="product-details-stock">
+          <p className="product-details-stock" data-in-stock={product.quantity > 0}>
             {product.quantity > 0
               ? `${product.quantity} unidades disponíveis`
               : "Produto indisponível"}
@@ -121,7 +121,7 @@ export default function ProductDetails() {
             onClick={handleAddToCart}
             disabled={!canAdd}
           >
-            {product.quantity === 0
+            {product.quantity <= 0
               ? "Indisponível"
               : !canAdd
                 ? "Limite de estoque no carrinho"
@@ -140,7 +140,7 @@ export default function ProductDetails() {
       {relatedProducts.length > 0 && (
         <section className="product-details-related" aria-labelledby="related-products-title">
           <h2 id="related-products-title">Você também pode gostar</h2>
-          <div className="product-details-related-grid">
+          <div className="products-grid">
             {relatedProducts.map((relatedProduct) => (
               <ProductCard key={relatedProduct.id} product={relatedProduct} showCartAction={false} />
             ))}

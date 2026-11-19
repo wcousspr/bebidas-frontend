@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { siteConfig } from "../../config/site";
 import { useCart } from "../../contexts/useCart";
 import { getProducts } from "../../services/product";
@@ -35,6 +35,49 @@ export default function Cart({ onClose }: CartProps) {
     "entrega" | "retirada"
   >("entrega");
   const [endereco, setEndereco] = useState("");
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const addressRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const viewport = window.visualViewport;
+
+    function positionInViewport() {
+      if (!dialog || !viewport) return;
+
+      dialog.style.setProperty("--cart-viewport-height", `${viewport.height}px`);
+      dialog.style.setProperty("--cart-viewport-top", `${viewport.offsetTop}px`);
+    }
+
+    function resizeToViewport() {
+      positionInViewport();
+      const field = document.activeElement;
+      if (field === nameRef.current || field === addressRef.current) {
+        field?.scrollIntoView({ block: "nearest", behavior: "instant" });
+      }
+    }
+
+    dialog.showModal();
+    resizeToViewport();
+    viewport?.addEventListener("resize", resizeToViewport);
+    viewport?.addEventListener("scroll", positionInViewport);
+
+    return () => {
+      viewport?.removeEventListener("resize", resizeToViewport);
+      viewport?.removeEventListener("scroll", positionInViewport);
+      dialog.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!erroFinalizacao && !avisoPreco) return;
+    if (document.activeElement !== nameRef.current && document.activeElement !== addressRef.current) {
+      feedbackRef.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
+    }
+  }, [erroFinalizacao, avisoPreco]);
 
   async function finalizarPedido() {
     if (finalizando || items.length === 0) return;
@@ -43,11 +86,13 @@ export default function Cart({ onClose }: CartProps) {
     setErroFinalizacao("");
 
     if (!nomeCliente.trim()) {
+      nameRef.current?.focus();
       setErroFinalizacao("Informe seu nome para continuar.");
       return;
     }
 
     if (tipoEntrega === "entrega" && !endereco.trim()) {
+      addressRef.current?.focus();
       setErroFinalizacao("Informe o endereço de entrega.");
       return;
     }
@@ -154,17 +199,22 @@ export default function Cart({ onClose }: CartProps) {
   }
 
   return (
-    <div className="cart-overlay" onClick={onClose}>
-      <aside
-        className="cart-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Carrinho de compras"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <dialog
+      ref={dialogRef}
+      className="cart-overlay"
+      aria-labelledby="cart-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="cart-panel">
         <div className="cart-header">
           <div>
-            <h2>Meu carrinho</h2>
+            <h2 id="cart-title">Meu carrinho</h2>
             <p>{totalItems} itens selecionados</p>
           </div>
 
@@ -198,6 +248,8 @@ export default function Cart({ onClose }: CartProps) {
                       <img
                         src={product.imageUrl}
                         alt={product.name}
+                        loading="lazy"
+                        decoding="async"
                       />
                     ) : (
                       <span>🥤</span>
@@ -268,8 +320,10 @@ export default function Cart({ onClose }: CartProps) {
 
                 <label htmlFor="nome-cliente">Seu nome</label>
                 <input
+                  ref={nameRef}
                   id="nome-cliente"
                   type="text"
+                  autoComplete="name"
                   placeholder="Digite seu nome"
                   value={nomeCliente}
                   onChange={(e) => setNomeCliente(e.target.value)}
@@ -277,9 +331,9 @@ export default function Cart({ onClose }: CartProps) {
                   required
                 />
 
-                <label>Como deseja receber?</label>
+                <span id="cart-delivery-label">Como deseja receber?</span>
 
-                <div className="cart-delivery-options">
+                <div className="cart-delivery-options" role="group" aria-labelledby="cart-delivery-label">
                   <label>
                     <input
                       type="radio"
@@ -310,7 +364,9 @@ export default function Cart({ onClose }: CartProps) {
                     </label>
 
                     <textarea
+                      ref={addressRef}
                       id="endereco-cliente"
+                      autoComplete="street-address"
                       placeholder="Rua, número, bairro, cidade e complemento"
                       value={endereco}
                       onChange={(e) => setEndereco(e.target.value)}
@@ -321,6 +377,13 @@ export default function Cart({ onClose }: CartProps) {
                   </>
                 )}
               </div>
+
+              {(erroFinalizacao || avisoPreco) && (
+                <div ref={feedbackRef} className="cart-feedback">
+                  {erroFinalizacao && <p role="alert">{erroFinalizacao}</p>}
+                  {avisoPreco && <p className="cart-price-warning" role="status">{avisoPreco}</p>}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -332,14 +395,6 @@ export default function Cart({ onClose }: CartProps) {
               <strong>{formatCurrency(totalPrice)}</strong>
             </div>
 
-            {erroFinalizacao && <p role="alert">{erroFinalizacao}</p>}
-
-            {avisoPreco && (
-              <p className="cart-price-warning" role="status">
-                {avisoPreco}
-              </p>
-            )}
-
             <button
               type="button"
               className="cart-checkout"
@@ -350,7 +405,7 @@ export default function Cart({ onClose }: CartProps) {
             </button>
           </div>
         )}
-      </aside>
-    </div>
+      </div>
+    </dialog>
   );
 }

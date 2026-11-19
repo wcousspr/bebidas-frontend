@@ -29,42 +29,35 @@ export default function ProductCard({
   const outOfStock = product.quantity <= 0;
   const reachedLimit = quantityInCart >= product.quantity;
   const disabled = outOfStock || reachedLimit;
-
-
-
   return (
-    
-        <article className="product-card">
-          <Link
-            to={`/produto/${product.id}`}
-            className="product-image-link"
-            aria-label={`Ver detalhes de ${product.name}`}
-          >
-            <div className="product-image">
-              {product.imageUrl ? (
-                <img
-                  src={product.imageUrl}
-                  alt={product.name}
-                  loading="lazy"
-                />
-              ) : (
-                <span className="product-placeholder">🥤</span>
-              )}
-            </div>
-          </Link>
-
+    <article className="product-card">
+      <Link
+        to={`/produto/${product.id}`}
+        className="product-image-link"
+        aria-label={`Ver detalhes de ${product.name}`}
+      >
+        <div className="product-image">
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span className="product-placeholder">🥤</span>
+          )}
+        </div>
+      </Link>
 
       <div className="product-info">
         <span className="product-category">
           {product.category}
         </span>
 
-        <Link
-            to={`/produto/${product.id}`}
-            className="product-name-link"
-          >
-            <h3>{product.name}</h3>
-          </Link>
+        <Link to={`/produto/${product.id}`} className="product-name-link">
+          <h3>{product.name}</h3>
+        </Link>
 
         <div className="product-footer">
           <strong>{formattedPrice}</strong>
@@ -92,17 +85,13 @@ export default function ProductCard({
           )}
         </div>
 
-        {outOfStock && (
-          <p className="product-stock-message">
-            Produto indisponível
-          </p>
-        )}
-
-        {showCartAction && !outOfStock && quantityInCart > 0 && (
-          <p className="product-stock-message">
-            {quantityInCart} no carrinho
-          </p>
-        )}
+        <p className="product-stock-message" data-in-stock={!outOfStock}>
+          {outOfStock
+            ? "Indisponível"
+            : showCartAction && quantityInCart > 0
+              ? `${quantityInCart} no carrinho`
+              : "Em estoque"}
+        </p>
       </div>
     </article>
   );
