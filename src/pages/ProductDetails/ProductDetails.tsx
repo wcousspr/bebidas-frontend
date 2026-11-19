@@ -90,6 +90,7 @@ export default function ProductDetails() {
   }
 
   const productUrl = new URL(`/produto/${product.id}`, siteConfig.publicOrigin).href;
+  const shareUrl = `${siteConfig.apiUrl.replace(/\/+$/, "")}/compartilhar/produto/${product.id}`;
   const relatedProducts = products
     .filter((item) => item.id !== product.id && item.category === product.category)
     .sort((first, second) => Number(second.quantity > 0) - Number(first.quantity > 0))
@@ -153,7 +154,7 @@ export default function ProductDetails() {
                 : "Adicionar ao carrinho"}
           </button>
 
-          <ShareProduct key={product.id} name={product.name} price={price} url={productUrl} />
+          <ShareProduct key={product.id} name={product.name} price={price} url={shareUrl} />
 
           {description && (
             <section className="product-details-description">
