@@ -1,3 +1,6 @@
+import type { AdminRequest } from "./adminRequest";
+
+import { invalidateCatalog } from "./product";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -31,22 +34,17 @@ export interface CreateBebida {
 
 export async function criarBebida(
   bebida: CreateBebida,
-  token: string
+  request: AdminRequest
 ): Promise<number> {
-  const response = await fetch(`${API_URL}/api/bebidas`, {
+  const response = await request(`/api/bebidas`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(bebida),
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Sua sessão expirou. Faça login novamente.");
-    }
-
     if (response.status === 403) {
       throw new Error("Você não possui permissão para cadastrar bebidas.");
     }
@@ -68,6 +66,7 @@ export async function criarBebida(
     throw new Error(`Erro ao cadastrar bebida (${response.status}).`);
   }
 
+  invalidateCatalog();
   const resultado: unknown = await response.json();
 
   if (
@@ -91,27 +90,19 @@ export async function criarBebida(
 export async function uploadImagemBebida(
   id: number,
   arquivo: File,
-  token: string
+  request: AdminRequest
 ): Promise<string> {
   const formData = new FormData();
   formData.append("file", arquivo);
 
-  const response = await fetch(
-    `${API_URL}/api/bebidas/${id}/imagem`,
+  const response = await request(`/api/bebidas/${id}/imagem`,
     {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
       body: formData,
     }
   );
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Sua sessão expirou. Faça login novamente.");
-    }
-
     if (response.status === 403) {
       throw new Error("Você não possui permissão para enviar imagens.");
     }
@@ -127,6 +118,7 @@ export async function uploadImagemBebida(
     throw new Error(`Erro ao enviar imagem (${response.status}).`);
   }
 
+  invalidateCatalog();
   const resultado: { imageUrl: string } = await response.json();
 
   return resultado.imageUrl;
@@ -136,22 +128,17 @@ export async function uploadImagemBebida(
 export async function atualizarBebida(
   id: number,
   bebida: CreateBebida,
-  token: string
+  request: AdminRequest
 ): Promise<void> {
-  const response = await fetch(`${API_URL}/api/bebidas/${id}`, {
+  const response = await request(`/api/bebidas/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(bebida),
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Sua sessão expirou. Faça login novamente.");
-    }
-
     if (response.status === 403) {
       throw new Error("Você não possui permissão para editar bebidas.");
     }
@@ -176,26 +163,20 @@ export async function atualizarBebida(
 
     throw new Error(`Erro ao atualizar bebida (${response.status}).`);
   }
+  invalidateCatalog();
 }
 
 
 
 export async function excluirBebida(
   id: number,
-  token: string
+  request: AdminRequest
 ): Promise<void> {
-  const response = await fetch(`${API_URL}/api/bebidas/${id}`, {
+  const response = await request(`/api/bebidas/${id}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Sua sessão expirou. Faça login novamente.");
-    }
-
     if (response.status === 403) {
       throw new Error("Você não possui permissão para excluir bebidas.");
     }
@@ -206,6 +187,7 @@ export async function excluirBebida(
 
     throw new Error(`Erro ao excluir bebida (${response.status}).`);
   }
+  invalidateCatalog();
 }
 
 

@@ -1,13 +1,17 @@
 
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
+import AdminSessionCheck from "./AdminSessionCheck";
 
 export default function ProtectedRoute() {
-  const { token, isAdmin } = useAuth();
+  const { status } = useAuth();
+  const { pathname, search, hash } = useLocation();
 
-  if (!token || !isAdmin) {
-    return <Navigate to="/admin/login" replace />;
+  if (status === "checking" || status === "temporary-error") {
+    return <AdminSessionCheck />;
   }
 
-  return <Outlet />;
+  return status === "authenticated" ? <Outlet /> : (
+    <Navigate to="/admin/login" replace state={{ from: pathname + search + hash }} />
+  );
 }

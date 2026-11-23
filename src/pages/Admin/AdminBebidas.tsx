@@ -62,7 +62,7 @@ function validarFormulario(form: Formulario, categorias: Categoria[]): CreateBeb
 }
 
 export default function AdminBebidas() {
-  const { token } = useAuth();
+  const { request } = useAuth();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [bebidas, setBebidas] = useState<Bebida[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,7 +172,7 @@ function selecionarImagemCadastro(arquivo: File | null) {
 async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
 
-  if (!token || ocupado) return;
+  if (!request || ocupado) return;
 
   let dados: CreateBebida;
 
@@ -189,7 +189,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
   let bebidaCriadaId: number;
 
   try {
-    bebidaCriadaId = await criarBebida(dados, token);
+    bebidaCriadaId = await criarBebida(dados, request);
   } catch (err) {
     setError(
       err instanceof Error
@@ -208,7 +208,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
       await uploadImagemBebida(
         bebidaCriadaId,
         imagemCadastro,
-        token
+        request
       );
 
       mensagem = "Bebida e imagem cadastradas com sucesso!";
@@ -249,7 +249,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
 }
 
   async function handleSalvarEdicao(id: number) {
-    if (!token || ocupado) return;
+    if (!request || ocupado) return;
     let dados: CreateBebida;
     try {
       dados = validarFormulario(edicao, categorias);
@@ -261,7 +261,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
     setOperacaoId(id);
     limparMensagens();
     try {
-      await atualizarBebida(id, dados, token);
+      await atualizarBebida(id, dados, request);
       cancelarEdicao();
       setSuccess("Bebida atualizada com sucesso!");
       try {
@@ -278,13 +278,13 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
   }
 
   async function handleExcluir(bebida: Bebida) {
-    if (!token || ocupado) return;
+    if (!request || ocupado) return;
     if (!window.confirm(`Tem certeza que deseja excluir "${bebida.name}"?\n\nO produto será removido do catálogo.`)) return;
     setOperacao("exclusao");
     setOperacaoId(bebida.id);
     limparMensagens();
     try {
-      await excluirBebida(bebida.id, token);
+      await excluirBebida(bebida.id, request);
       setBebidas((anteriores) => anteriores.filter((item) => item.id !== bebida.id));
       if (editandoId === bebida.id) cancelarEdicao();
       setSuccess(`Bebida "${bebida.name}" excluída com sucesso!`);
@@ -297,7 +297,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
   }
 
   async function handleUploadImagem(id: number) {
-    if (!token || ocupado) return;
+    if (!request || ocupado) return;
     const arquivo = arquivos[id];
     if (!arquivo) { setError("Selecione uma imagem antes de enviar."); return; }
     if (!["image/jpeg", "image/png", "image/webp"].includes(arquivo.type)) {
@@ -310,7 +310,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
     setOperacaoId(id);
     limparMensagens();
     try {
-      const imageUrl = await uploadImagemBebida(id, arquivo, token);
+      const imageUrl = await uploadImagemBebida(id, arquivo, request);
       setBebidas((anteriores) => anteriores.map((bebida) =>
         bebida.id === id ? { ...bebida, imageUrl } : bebida
       ));
@@ -455,7 +455,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
               </div>
 
             <div className="bebidas-actions">
-              <button className="bebidas-btn bebidas-btn-primary" type="submit" disabled={ocupado || !token}>
+              <button className="bebidas-btn bebidas-btn-primary" type="submit" disabled={ocupado || !request}>
                 {operacao === "cadastro"
                   ? "Cadastrando produto e imagem..."
                   : "Cadastrar bebida"}
@@ -537,7 +537,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
                       {camposFormulario(edicao, setEdicao, `editar-${bebida.id}`)}
                       <div className="bebidas-actions">
                         <button className="bebidas-btn bebidas-btn-primary" type="button"
-                          onClick={() => handleSalvarEdicao(bebida.id)} disabled={ocupado || !token}>
+                          onClick={() => handleSalvarEdicao(bebida.id)} disabled={ocupado || !request}>
                           {operacao === "edicao" && operacaoId === bebida.id ? "Salvando..." : "Salvar alterações"}
                         </button>
                         <button className="bebidas-btn bebidas-btn-secondary" type="button"
@@ -558,7 +558,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
                         }} />
                     </label>
                     <button className="bebidas-btn bebidas-btn-secondary" type="button"
-                      disabled={ocupado || !arquivos[bebida.id] || !token}
+                      disabled={ocupado || !arquivos[bebida.id] || !request}
                       onClick={() => handleUploadImagem(bebida.id)}>
                       {operacao === "upload" && operacaoId === bebida.id ? "Enviando..." : "Enviar imagem"}
                     </button>

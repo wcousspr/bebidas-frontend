@@ -1,10 +1,15 @@
-
 import { createContext } from "react";
 import type { LoginCredentials } from "../services/authService";
+import type { AdminRequest } from "../services/adminRequest";
 
-export interface AuthContextType {
-  token: string | null;
-  isAdmin: boolean;
+type SessionStatus = "checking" | "authenticated" | "anonymous" | "temporary-error";
+
+interface AuthContextType {
+  status: SessionStatus;
+  request: AdminRequest | null;
+  message: string | null;
+  storageWarning: string | null;
+  retryRestoration: () => void;
   signIn: (credentials: LoginCredentials) => Promise<void>;
   signOut: () => void;
 }

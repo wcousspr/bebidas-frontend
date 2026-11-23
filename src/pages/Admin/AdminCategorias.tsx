@@ -10,7 +10,7 @@ import {
 import "./AdminCategorias.css";
 
 export default function AdminCategorias() {
-  const { token } = useAuth();
+  const { request } = useAuth();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [nome, setNome] = useState("");
   const [busca, setBusca] = useState("");
@@ -71,7 +71,7 @@ export default function AdminCategorias() {
   }
 
   async function salvarEdicao(id: number) {
-    if (!token || ocupado) return;
+    if (!request || ocupado) return;
     const nomeLimpo = nomeEditado.trim();
 
     if (nomeLimpo.length < 2 || nomeLimpo.length > 100) {
@@ -84,7 +84,7 @@ export default function AdminCategorias() {
     setSuccess("");
 
     try {
-      await atualizarCategoria(id, nomeLimpo, token);
+      await atualizarCategoria(id, nomeLimpo, request);
       // A edição já foi confirmada pela API; atualizamos a lista local.
       setCategorias((anteriores) =>
         anteriores.map((categoria) =>
@@ -102,7 +102,7 @@ export default function AdminCategorias() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!token || ocupado) return;
+    if (!request || ocupado) return;
     const nomeLimpo = nome.trim();
 
     if (nomeLimpo.length < 2 || nomeLimpo.length > 100) {
@@ -115,7 +115,7 @@ export default function AdminCategorias() {
     setSuccess("");
 
     try {
-      await criarCategoria(nomeLimpo, token);
+      await criarCategoria(nomeLimpo, request);
       setNome("");
       setMostrarFormulario(false);
       setSuccess("Categoria cadastrada com sucesso!");
@@ -132,7 +132,7 @@ export default function AdminCategorias() {
   }
 
   async function handleExcluir(categoria: Categoria) {
-    if (!token || ocupado) return;
+    if (!request || ocupado) return;
     const confirmou = window.confirm(
       `Tem certeza que deseja excluir a categoria "${categoria.name}"?\n\nCategorias com bebidas vinculadas não podem ser excluídas.`
     );
@@ -143,7 +143,7 @@ export default function AdminCategorias() {
     setSuccess("");
 
     try {
-      await excluirCategoria(categoria.id, token);
+      await excluirCategoria(categoria.id, request);
       setCategorias((anteriores) =>
         anteriores.filter((item) => item.id !== categoria.id)
       );
@@ -201,7 +201,7 @@ export default function AdminCategorias() {
               />
             </div>
             <div className="ac-actions">
-              <button type="submit" className="ac-button ac-button-primary" disabled={ocupado || !token}>
+              <button type="submit" className="ac-button ac-button-primary" disabled={ocupado || !request}>
                 {saving ? "Salvando..." : "Cadastrar categoria"}
               </button>
               <button type="button" className="ac-button ac-button-secondary" disabled={ocupado} onClick={() => setMostrarFormulario(false)}>
@@ -261,7 +261,7 @@ export default function AdminCategorias() {
                       />
                     </div>
                     <div className="ac-actions">
-                      <button type="button" className="ac-button ac-button-primary" onClick={() => salvarEdicao(categoria.id)} disabled={ocupado || !token}>
+                      <button type="button" className="ac-button ac-button-primary" onClick={() => salvarEdicao(categoria.id)} disabled={ocupado || !request}>
                         {updating ? "Salvando..." : "Salvar alterações"}
                       </button>
                       <button type="button" className="ac-button ac-button-secondary" onClick={cancelarEdicao} disabled={ocupado}>
