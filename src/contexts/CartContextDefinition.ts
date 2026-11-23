@@ -12,8 +12,7 @@ export interface CartContextType {
   removeFromCart: (productId: number) => void;
   decreaseQuantity: (productId: number) => void;
   clearCart: () => void;
-  syncCart: () => Promise<void>;
-  syncing: boolean;
+  updateValidatedItems: (expected: CartItem[], validated: CartItem[]) => void;
   totalItems: number;
   totalPrice: number;
 }
