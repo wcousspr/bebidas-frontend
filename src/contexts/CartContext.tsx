@@ -1,195 +1,175 @@
-
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Product } from "../types/Product";
+import { siteConfig } from "../config/site";
 import { getProducts } from "../services/product";
-import { CartContext, type CartItem } from "./CartContextDefinition";
+import { CartContext, type CartSyncStatus } from "./CartContextDefinition";
+import {
+  addCartItem, indexProducts, needsStockReview, readCart, reconcileCart, rememberCatalog,
+  serializeCart, type CartItem, type KnownProducts,
+} from "./cartState";
 
 const STORAGE_KEY = "codigo-dos-bares-cart";
 
-function loadSavedCart(): CartItem[] {
+function loadSavedCart() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-
-    if (!saved) return [];
-
-    const parsed: unknown = JSON.parse(saved);
-
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(
-      (item): item is CartItem =>
-        typeof item === "object" &&
-        item !== null &&
-        typeof item.quantity === "number" &&
-        Number.isInteger(item.quantity) &&
-        item.quantity > 0 &&
-        typeof item.product === "object" &&
-        item.product !== null &&
-        typeof item.product.id === "number" &&
-        typeof item.product.name === "string" &&
-        typeof item.product.price === "number" &&
-        Number.isFinite(item.product.price) &&
-        item.product.price >= 0 &&
-        typeof item.product.quantity === "number" &&
-        Number.isInteger(item.product.quantity) &&
-        item.product.quantity >= 0
-    );
+    return { ...readCart(localStorage.getItem(STORAGE_KEY)), storageError: false };
   } catch {
-    return [];
+    return { ...readCart(null), storageError: true };
   }
 }
 
-export function CartProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const [items, setItems] = useState<CartItem[]>(loadSavedCart);
-  const initialSync = useRef<AbortController | null>(null);
+interface CartState {
+  items: CartItem[];
+  catalog: KnownProducts | null;
+}
 
-  // Salvar carrinho no localStorage
+export function CartProvider({ children }: { children: ReactNode }) {
+  const [saved] = useState(loadSavedCart);
+  const [{ items }, setCart] = useState<CartState>({ items: saved.items, catalog: null });
+  const [syncStatus, setSyncStatus] = useState<CartSyncStatus>(saved.items.length ? "syncing" : "idle");
+  const [storageError, setStorageError] = useState(saved.storageError);
+  const lastSaved = useRef(saved.lastSaved);
+  const activeSync = useRef<AbortController | null>(null);
+  const syncVersion = useRef(0);
+  const serialized = serializeCart(items);
+
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      console.warn("Não foi possível salvar o carrinho.");
-    }
-  }, [items]);
-
-  const updateValidatedItems = useCallback((expected: CartItem[], validated: CartItem[]) => {
-    initialSync.current?.abort();
-    setItems((current) => current === expected ? validated : current);
-  }, []);
-
-  // Sincronizar automaticamente ao carregar o site
-  useEffect(() => {
-    const controller = new AbortController();
-    initialSync.current = controller;
-
-    async function sincronizarAoIniciar() {
+    let active = true;
+    queueMicrotask(() => {
+      if (!active || serialized === lastSaved.current) return;
       try {
-        const produtosAtuais = await getProducts({ signal: controller.signal });
-
-        if (controller.signal.aborted) return;
-
-        setItems((current) => current.flatMap((item) => {
-          const produtoAtual = produtosAtuais.find((produto) => produto.id === item.product.id);
-
-          if (!produtoAtual || produtoAtual.quantity <= 0) return [];
-
-          return [{
-            product: produtoAtual,
-            quantity: Math.min(item.quantity, produtoAtual.quantity),
-          }];
-        }));
-      } catch (err) {
-        if (!controller.signal.aborted) {
-          console.error("Erro ao sincronizar carrinho:", err);
-        }
-      } finally {
-        if (initialSync.current === controller) initialSync.current = null;
+        localStorage.setItem(STORAGE_KEY, serialized);
+        lastSaved.current = serialized;
+        setStorageError(false);
+      } catch {
+        setStorageError(true);
       }
+    });
+    return () => { active = false; };
+  }, [serialized]);
+
+  const requestSync = useCallback(async () => {
+    activeSync.current?.abort();
+    const controller = new AbortController();
+    activeSync.current = controller;
+    const version = ++syncVersion.current;
+
+    const timeout = window.setTimeout(() => {
+      if (activeSync.current !== controller) return;
+      activeSync.current = null;
+      controller.abort();
+      setSyncStatus("error");
+    }, siteConfig.checkoutTimeoutMs);
+
+    try {
+      const products = await getProducts({ signal: controller.signal, cache: "no-store" });
+      if (activeSync.current !== controller) return;
+
+      const catalog = indexProducts(products);
+      setCart((current) => syncVersion.current === version ? {
+        catalog: rememberCatalog(catalog, current.catalog, current.items),
+        items: reconcileCart(current.items, catalog),
+      } : current);
+      setSyncStatus("ready");
+    } catch {
+      if (activeSync.current === controller) setSyncStatus("error");
+    } finally {
+      window.clearTimeout(timeout);
+      if (activeSync.current === controller) activeSync.current = null;
     }
-
-    void sincronizarAoIniciar();
-
-    return () => controller.abort();
   }, []);
-  // Adicionar produto ao carrinho
+
+  useEffect(() => {
+    if (saved.items.length) void requestSync();
+
+    return () => {
+      activeSync.current?.abort();
+      activeSync.current = null;
+    };
+  }, [saved, requestSync]);
+
+  function syncCart() {
+    setSyncStatus("syncing");
+    return requestSync();
+  }
+
+  function beginCheckoutValidation(expected: CartItem[]) {
+    if (activeSync.current) return null;
+    const version = ++syncVersion.current;
+    return {
+      apply(validated: CartItem[], catalog: ReadonlyMap<number, Product>) {
+        if (syncVersion.current !== version) return false;
+        setCart((current) => current.items === expected && syncVersion.current === version ? {
+          items: validated,
+          catalog: rememberCatalog(catalog, current.catalog, expected),
+        } : current);
+        setSyncStatus("ready");
+        return true;
+      },
+      fail() {
+        if (syncVersion.current === version) setSyncStatus("stale");
+      },
+    };
+  }
+
+  function updateItems(update: (items: CartItem[]) => CartItem[]) {
+    setCart((current) => ({ ...current, items: update(current.items) }));
+  }
+
   function addToCart(product: Product) {
-    if (product.quantity <= 0) return;
-
-    setItems((current) => {
-      const existing = current.find(
-        (item) => item.product.id === product.id
-      );
-
-      if (existing) {
-        const nextQuantity = Math.min(
-          existing.quantity + 1,
-          product.quantity
-        );
-
-        return current.map((item) =>
-          item.product.id === product.id
-            ? { product, quantity: nextQuantity }
-            : item
-        );
-      }
-
-      return [
-        ...current,
-        {
-          product,
-          quantity: 1,
-        },
-      ];
+    setCart((current) => {
+      const items = addCartItem(current.items, current.catalog, product);
+      return items === current.items ? current : { ...current, items };
     });
   }
 
-  // Remover produto completamente
   function removeFromCart(productId: number) {
-    setItems((current) =>
-      current.filter(
-        (item) => item.product.id !== productId
-      )
-    );
+    updateItems((current) => current.filter((item) => item.productId !== productId));
   }
 
-  // Diminuir quantidade
   function decreaseQuantity(productId: number) {
-    setItems((current) =>
-      current
-        .map((item) =>
-          item.product.id === productId
-            ? {
-                ...item,
-                quantity: item.quantity - 1,
-              }
-            : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
+    updateItems((current) => current.flatMap((item) => {
+      if (item.productId !== productId) return [item];
+      return item.quantity > 1 ? [{ ...item, quantity: item.quantity - 1 }] : [];
+    }));
   }
 
-  // Esvaziar carrinho
-  function clearCart() {
-    setItems([]);
+  function adjustToStock(productId: number) {
+    updateItems((current) => current.map((item) =>
+      item.productId === productId && item.product && needsStockReview(item)
+        ? { ...item, quantity: item.product.quantity }
+        : item
+    ));
   }
 
-  // Quantidade total de unidades
-  const totalItems = items.reduce(
-    (total, item) => total + item.quantity,
-    0
-  );
+  function acceptPriceChanges() {
+    updateItems((current) => current.map((item) =>
+      item.previousPrice === undefined ? item : { ...item, previousPrice: undefined }
+    ));
+  }
 
-  // Valor total do carrinho
-  const totalPrice = items.reduce(
-    (total, item) =>
-      total + item.product.price * item.quantity,
-    0
+  const canShowTotal = syncStatus === "ready" && items.every((item) =>
+    item.availability === "available" && !needsStockReview(item)
   );
 
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        addToCart,
-        removeFromCart,
-        decreaseQuantity,
-        clearCart,
-        updateValidatedItems,
-        totalItems,
-        totalPrice,
-      }}
-    >
+    <CartContext.Provider value={{
+      items,
+      addToCart,
+      removeFromCart,
+      decreaseQuantity,
+      adjustToStock,
+      clearCart: () => updateItems(() => []),
+      syncCart,
+      syncStatus,
+      storageError,
+      acceptPriceChanges,
+      beginCheckoutValidation,
+      totalItems: items.reduce((total, item) => total + item.quantity, 0),
+      totalPrice: canShowTotal
+        ? items.reduce((total, item) => total + (item.product?.price ?? 0) * item.quantity, 0)
+        : null,
+    }}>
       {children}
     </CartContext.Provider>
   );

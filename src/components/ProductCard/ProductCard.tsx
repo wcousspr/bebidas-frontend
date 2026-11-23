@@ -21,7 +21,7 @@ export default function ProductCard({
   }).format(product.price);
 
   const cartItem = items.find(
-    (item) => item.product.id === product.id
+    (item) => item.productId === product.id
   );
 
   const quantityInCart = cartItem?.quantity ?? 0;

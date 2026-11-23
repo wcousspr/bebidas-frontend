@@ -1,7 +1,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { siteConfig } from "../../config/site";
-import type { CartItem } from "../../contexts/CartContextDefinition";
+import { indexProducts, needsStockReview, reconcileCart, type CartItem } from "../../contexts/cartState";
 import { useCart } from "../../contexts/useCart";
 import { ApiHttpError, ApiNetworkError } from "../../services/api";
 import { getProducts } from "../../services/product";
@@ -38,14 +38,18 @@ export default function Cart({ onClose }: CartProps) {
     items,
     addToCart,
     decreaseQuantity,
+    adjustToStock,
     removeFromCart,
     clearCart,
-    updateValidatedItems,
+    beginCheckoutValidation,
+    acceptPriceChanges,
+    syncCart,
+    syncStatus,
+    storageError,
     totalItems,
     totalPrice,
   } = useCart();
 
-  const [avisoPreco, setAvisoPreco] = useState("");
   const [checkout, setCheckout] = useState<CheckoutStatus | null>(null);
   const [avisoCancelamento, setAvisoCancelamento] = useState("");
   const [erroFinalizacao, setErroFinalizacao] = useState("");
@@ -61,6 +65,13 @@ export default function Cart({ onClose }: CartProps) {
   const activeAttempt = useRef<CheckoutAttempt | null>(null);
   const checkoutAtual = checkout?.items === items ? checkout : null;
   const finalizando = checkoutAtual?.kind === "validating";
+  const hasPriceChanges = items.some((item) => item.previousPrice !== undefined);
+  const syncPending = syncStatus === "syncing";
+  const syncFailed = syncStatus === "error";
+  const pricesStale = syncStatus === "stale";
+  const pricesVisible = !syncPending && !syncFailed && !pricesStale;
+  const checkoutBlocked = syncPending || syncFailed || hasPriceChanges ||
+    items.some((item) => !item.product || item.availability === "unavailable" || needsStockReview(item));
 
   // A mudança de itens pelo contexto também invalida a tentativa, mesmo fora do diálogo.
   useLayoutEffect(() => {
@@ -81,6 +92,7 @@ export default function Cart({ onClose }: CartProps) {
 
   function changeOrder(change: () => void) {
     invalidateCheckout("O pedido mudou. Valide novamente para continuar.");
+    setErroFinalizacao("");
     change();
   }
 
@@ -122,16 +134,15 @@ export default function Cart({ onClose }: CartProps) {
   }, []);
 
   useEffect(() => {
-    if (!erroFinalizacao && !avisoPreco) return;
+    if (!erroFinalizacao) return;
     if (document.activeElement !== nameRef.current && document.activeElement !== addressRef.current) {
       feedbackRef.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
     }
-  }, [erroFinalizacao, avisoPreco]);
+  }, [erroFinalizacao]);
 
   async function finalizarPedido() {
-    if (activeAttempt.current || checkoutAtual?.kind === "ready" || items.length === 0) return;
+    if (activeAttempt.current || checkoutAtual?.kind === "ready" || checkoutBlocked || items.length === 0) return;
 
-    setAvisoPreco("");
     setAvisoCancelamento("");
     setErroFinalizacao("");
 
@@ -154,6 +165,9 @@ export default function Cart({ onClose }: CartProps) {
       return;
     }
 
+    const validation = beginCheckoutValidation(items);
+    if (!validation) return;
+
     // A identidade do objeto é exclusiva de cada tentativa e trava novos cliques.
     const attempt: CheckoutAttempt = { controller: new AbortController(), popup: null };
     activeAttempt.current = attempt;
@@ -167,6 +181,7 @@ export default function Cart({ onClose }: CartProps) {
       attempt.timeout = window.setTimeout(() => {
         if (activeAttempt.current !== attempt) return;
         invalidateCheckout();
+        validation.fail();
         setErroFinalizacao("A consulta demorou mais que o esperado. Tente novamente.");
       }, siteConfig.checkoutTimeoutMs);
 
@@ -176,50 +191,27 @@ export default function Cart({ onClose }: CartProps) {
       });
       if (activeAttempt.current !== attempt) return;
 
-      const itensAtualizados = items.map((item) => {
-        const atual = produtosAtuais.find(
-          (produto) => produto.id === item.product.id
-        );
-
-        if (!atual) {
-          throw new Error(
-            `O produto "${item.product.name}" não está mais disponível.`
-          );
-        }
-
-        if (atual.quantity < item.quantity) {
-          throw new Error(
-            `Estoque insuficiente para "${atual.name}". Disponível: ${atual.quantity}.`
-          );
-        }
-
-        return {
-          product: atual,
-          quantity: item.quantity,
-        };
-      });
-
-      const precosAlterados = itensAtualizados.some(
-        (item, index) => item.product.price !== items[index]?.product.price
-      );
-
-      if (precosAlterados) {
-        updateValidatedItems(items, itensAtualizados);
-        setAvisoPreco(
-          "Alguns preços foram atualizados. Confira os novos valores antes de finalizar."
-        );
+      const catalog = indexProducts(produtosAtuais);
+      const itensAtualizados = reconcileCart(items, catalog);
+      if (!validation.apply(itensAtualizados, catalog)) {
+        setErroFinalizacao("O carrinho foi atualizado durante a consulta. Tente novamente.");
         return;
       }
 
-      const linhas = itensAtualizados.map(
-        ({ product, quantity }) =>
-          `• ${quantity}x ${product.name} — ${formatCurrency(product.price * quantity)}`
-      );
+      const linhas: string[] = [];
+      let total = 0;
+      for (const item of itensAtualizados) {
+        const { product, quantity } = item;
+        if (!product || item.availability !== "available" ||
+            needsStockReview(item) || item.previousPrice !== undefined) {
+          setErroFinalizacao("O carrinho mudou. Revise os itens antes de finalizar.");
+          return;
+        }
+        const subtotal = product.price * quantity;
+        linhas.push(`• ${quantity}x ${product.name} — ${formatCurrency(subtotal)}`);
+        total += subtotal;
+      }
 
-      const total = itensAtualizados.reduce(
-        (soma, item) => soma + item.product.price * item.quantity,
-        0
-      );
       const mensagem = [
         "Olá! Gostaria de fazer o seguinte pedido:",
         "",
@@ -244,10 +236,11 @@ export default function Cart({ onClose }: CartProps) {
         attempt.popup.location.href = url;
         attempt.popup = null;
       } else {
-        setCheckout({ kind: "ready", items, url });
+        setCheckout({ kind: "ready", items: itensAtualizados, url });
       }
     } catch (err) {
       if (activeAttempt.current !== attempt) return;
+      validation.fail();
 
       setErroFinalizacao(
         err instanceof ApiHttpError
@@ -299,6 +292,28 @@ export default function Cart({ onClose }: CartProps) {
         </div>
 
         <div className="cart-content">
+          {storageError && (
+            <p className="cart-price-warning" role="status">
+              O armazenamento está indisponível. O carrinho pode não ser mantido ao recarregar.
+            </p>
+          )}
+          {items.length > 0 && (
+            <div className="cart-sync">
+              <p role="status">
+                {syncPending && "Atualizando preços e disponibilidade…"}
+                {syncFailed && "Não foi possível atualizar o carrinho. Seus itens foram mantidos."}
+                {pricesStale && !erroFinalizacao && "Os preços e o estoque precisam ser confirmados."}
+              </p>
+              <button
+                type="button"
+                className="cart-secondary-action"
+                disabled={syncPending || finalizando}
+                onClick={() => changeOrder(() => { void syncCart(); })}
+              >
+                {syncFailed || pricesStale ? "Tentar novamente" : "Atualizar carrinho"}
+              </button>
+            </div>
+          )}
           {items.length === 0 ? (
             <div className="cart-empty">
               <span>🛒</span>
@@ -311,68 +326,120 @@ export default function Cart({ onClose }: CartProps) {
             </div>
           ) : (
             <div className="cart-items">
-              {items.map(({ product, quantity }) => (
-                <article className="cart-item" key={product.id}>
-                  <div className="cart-item-image">
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    ) : (
-                      <span>🥤</span>
-                    )}
-                  </div>
-
-                  <div className="cart-item-details">
-                    <h3>{product.name}</h3>
-
-                    <p>{formatCurrency(product.price)} / un.</p>
-
-                    <strong>
-                      {formatCurrency(product.price * quantity)}
-                    </strong>
-
-                    <div className="cart-item-bottom">
-                      <div className="cart-quantity">
-                        <button
-                          type="button"
-                          onClick={() => changeOrder(() => decreaseQuantity(product.id))}
-                          aria-label={`Diminuir quantidade de ${product.name}`}
-                        >
-                          −
-                        </button>
-
-                        <span>{quantity}</span>
-
-                        <button
-                          type="button"
-                          onClick={() => changeOrder(() => addToCart(product))}
-                          disabled={quantity >= product.quantity}
-                          aria-label={`Aumentar quantidade de ${product.name}`}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="cart-remove"
-                        onClick={() => changeOrder(() => removeFromCart(product.id))}
-                      >
-                        Remover
-                      </button>
+              {items.map((item) => {
+                const { productId, product, quantity, availability, previousPrice, previousStock } = item;
+                const name = product?.name ?? `Produto #${productId}`;
+                const reducedStock = needsStockReview(item);
+                return (
+                  <article className="cart-item" key={productId}>
+                    <div className="cart-item-image">
+                      {product?.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={name}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <span>🥤</span>
+                      )}
                     </div>
-                  </div>
-                </article>
-              ))}
+
+                    <div className="cart-item-details">
+                      <h3>{name}</h3>
+
+                      {availability === "unavailable" && (
+                        <p className="cart-price-warning">Produto indisponível. Remova-o para continuar com o pedido.</p>
+                      )}
+                      {product && availability !== "unavailable" && pricesVisible && (
+                        availability === "unconfirmed" ? (
+                          <p>Preço provisório: {formatCurrency(product.price)} / un.</p>
+                        ) : (
+                          <>
+                            <p>{formatCurrency(product.price)} / un.</p>
+                            {previousPrice !== undefined && (
+                              <p className="cart-price-warning">
+                                Preço atualizado de {formatCurrency(previousPrice)} para {formatCurrency(product.price)} por unidade.
+                              </p>
+                            )}
+                            <strong>{formatCurrency(product.price * quantity)}</strong>
+                          </>
+                        )
+                      )}
+                      {reducedStock && product && pricesVisible && (
+                        <p className="cart-price-warning">
+                          Você selecionou {quantity}. O estoque agora é de {product.quantity}.
+                        </p>
+                      )}
+                      {!reducedStock && previousStock !== undefined && product && availability === "available" && pricesVisible && (
+                        <p className="cart-price-warning">
+                          Estoque reduzido de {previousStock} para {product.quantity} unidades.
+                        </p>
+                      )}
+
+                      <div className="cart-item-bottom">
+                        <div className="cart-quantity">
+                          <button
+                            type="button"
+                            onClick={() => changeOrder(() => decreaseQuantity(productId))}
+                            aria-label={`Diminuir quantidade de ${name}`}
+                          >
+                            −
+                          </button>
+
+                          <span>{quantity}</span>
+
+                          <button
+                            type="button"
+                            onClick={() => { if (product) changeOrder(() => addToCart(product)); }}
+                            disabled={!product || syncFailed || availability === "unavailable" || quantity >= product.quantity}
+                            aria-label={`Aumentar quantidade de ${name}`}
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="cart-remove"
+                          onClick={() => changeOrder(() => removeFromCart(productId))}
+                        >
+                          Remover
+                        </button>
+                        {reducedStock && pricesVisible && (
+                          <button
+                            type="button"
+                            className="cart-secondary-action"
+                            onClick={() => changeOrder(() => adjustToStock(productId))}
+                          >
+                            Ajustar ao estoque
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
 
           {items.length > 0 && (
             <>
+              {hasPriceChanges && !syncFailed && (
+                <div className="cart-review">
+                  <p className="cart-price-warning" role="status">
+                    Confira os preços atualizados antes de finalizar.
+                  </p>
+                  <button
+                    type="button"
+                    className="cart-secondary-action"
+                    disabled={syncPending || finalizando}
+                    onClick={() => changeOrder(acceptPriceChanges)}
+                  >
+                    Confirmar preços atualizados
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
                 className="cart-clear"
@@ -448,10 +515,9 @@ export default function Cart({ onClose }: CartProps) {
                 )}
               </div>
 
-              {(erroFinalizacao || avisoPreco) && (
+              {erroFinalizacao && (
                 <div ref={feedbackRef} className="cart-feedback">
-                  {erroFinalizacao && <p role="alert">{erroFinalizacao}</p>}
-                  {avisoPreco && <p className="cart-price-warning" role="status">{avisoPreco}</p>}
+                  <p role="alert">{erroFinalizacao}</p>
                 </div>
               )}
             </>
@@ -462,7 +528,7 @@ export default function Cart({ onClose }: CartProps) {
           <div className="cart-footer">
             <div className="cart-total">
               <span>Total estimado</span>
-              <strong>{formatCurrency(totalPrice)}</strong>
+              <strong>{totalPrice === null || !pricesVisible ? "A confirmar" : formatCurrency(totalPrice)}</strong>
             </div>
 
             <div className="cart-checkout-status" role="status">
@@ -480,7 +546,7 @@ export default function Cart({ onClose }: CartProps) {
                 type="button"
                 className="cart-checkout"
                 onClick={finalizarPedido}
-                disabled={finalizando}
+                disabled={finalizando || checkoutBlocked}
               >
                 {finalizando ? "Validando pedido..." : "Finalizar pelo WhatsApp"}
               </button>

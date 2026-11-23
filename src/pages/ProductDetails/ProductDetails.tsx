@@ -96,7 +96,7 @@ export default function ProductDetails() {
     .sort((first, second) => Number(second.quantity > 0) - Number(first.quantity > 0))
     .slice(0, 4);
   const quantityInCart =
-    items.find((item) => item.product.id === product.id)
+    items.find((item) => item.productId === product.id)
       ?.quantity ?? 0;
 
   const canAdd =

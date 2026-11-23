@@ -1,22 +1,26 @@
 import { createContext } from "react";
 import type { Product } from "../types/Product";
+import type { CartItem } from "./cartState";
 
-export interface CartItem {
-  product: Product;
-  quantity: number;
-}
+export type CartSyncStatus = "idle" | "syncing" | "error" | "stale" | "ready";
 
-export interface CartContextType {
+interface CartContextType {
   items: CartItem[];
   addToCart: (product: Product) => void;
   removeFromCart: (productId: number) => void;
   decreaseQuantity: (productId: number) => void;
+  adjustToStock: (productId: number) => void;
   clearCart: () => void;
-  updateValidatedItems: (expected: CartItem[], validated: CartItem[]) => void;
+  syncCart: () => Promise<void>;
+  syncStatus: CartSyncStatus;
+  storageError: boolean;
+  acceptPriceChanges: () => void;
+  beginCheckoutValidation: (expected: CartItem[]) => {
+    apply: (items: CartItem[], catalog: ReadonlyMap<number, Product>) => boolean;
+    fail: () => void;
+  } | null;
   totalItems: number;
-  totalPrice: number;
+  totalPrice: number | null;
 }
 
-export const CartContext = createContext<
-  CartContextType | undefined
->(undefined);
+export const CartContext = createContext<CartContextType | undefined>(undefined);
