@@ -12,8 +12,8 @@ interface BebidaApi {
   description?: string | null;
 }
 
-export async function getProducts(): Promise<Product[]> {
-  const bebidas = await apiGet<BebidaApi[]>("/api/bebidas");
+export async function getProducts(options?: Parameters<typeof apiGet>[1]): Promise<Product[]> {
+  const bebidas = await apiGet<BebidaApi[]>("/api/bebidas", options);
 
   return bebidas.map((bebida) => ({
     id: bebida.id,

@@ -2,6 +2,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -51,7 +52,7 @@ export function CartProvider({
   children: ReactNode;
 }) {
   const [items, setItems] = useState<CartItem[]>(loadSavedCart);
-  const [syncing, setSyncing] = useState(false);
+  const initialSync = useRef<AbortController | null>(null);
 
   // Salvar carrinho no localStorage
   useEffect(() => {
@@ -62,89 +63,45 @@ export function CartProvider({
     }
   }, [items]);
 
-  // Sincronizar carrinho com a API
-  const syncCart = useCallback(async () => {
-    setSyncing(true);
-
-    try {
-      const produtosAtuais = await getProducts();
-
-      setItems((current) =>
-        current.flatMap((item) => {
-          const produtoAtual = produtosAtuais.find(
-            (produto) => produto.id === item.product.id
-          );
-
-          // Produto excluído ou sem estoque
-          if (!produtoAtual || produtoAtual.quantity <= 0) {
-            return [];
-          }
-
-          // Atualizar preço, nome, imagem e estoque
-          return [
-            {
-              product: produtoAtual,
-              quantity: Math.min(
-                item.quantity,
-                produtoAtual.quantity
-              ),
-            },
-          ];
-        })
-      );
-    } catch (err) {
-      console.error("Erro ao sincronizar carrinho:", err);
-    } finally {
-      setSyncing(false);
-    }
+  const updateValidatedItems = useCallback((expected: CartItem[], validated: CartItem[]) => {
+    initialSync.current?.abort();
+    setItems((current) => current === expected ? validated : current);
   }, []);
 
   // Sincronizar automaticamente ao carregar o site
-  // Sincronizar automaticamente ao carregar o site
-useEffect(() => {
-  const controller = new AbortController();
+  useEffect(() => {
+    const controller = new AbortController();
+    initialSync.current = controller;
 
-  async function sincronizarAoIniciar() {
-    try {
-      const produtosAtuais = await getProducts();
+    async function sincronizarAoIniciar() {
+      try {
+        const produtosAtuais = await getProducts({ signal: controller.signal });
 
-      if (controller.signal.aborted) return;
+        if (controller.signal.aborted) return;
 
-      setItems((current) =>
-        current.flatMap((item) => {
-          const produtoAtual = produtosAtuais.find(
-            (produto) => produto.id === item.product.id
-          );
+        setItems((current) => current.flatMap((item) => {
+          const produtoAtual = produtosAtuais.find((produto) => produto.id === item.product.id);
 
-          if (!produtoAtual || produtoAtual.quantity <= 0) {
-            return [];
-          }
+          if (!produtoAtual || produtoAtual.quantity <= 0) return [];
 
-          return [
-            {
-              product: produtoAtual,
-              quantity: Math.min(
-                item.quantity,
-                produtoAtual.quantity
-              ),
-            },
-          ];
-        })
-      );
-    } catch (err) {
-      if (!controller.signal.aborted) {
-        console.error("Erro ao sincronizar carrinho:", err);
+          return [{
+            product: produtoAtual,
+            quantity: Math.min(item.quantity, produtoAtual.quantity),
+          }];
+        }));
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          console.error("Erro ao sincronizar carrinho:", err);
+        }
+      } finally {
+        if (initialSync.current === controller) initialSync.current = null;
       }
     }
-  }
 
-  void sincronizarAoIniciar();
+    void sincronizarAoIniciar();
 
-  return () => {
-    controller.abort();
-  };
-}, []);
-
+    return () => controller.abort();
+  }, []);
   // Adicionar produto ao carrinho
   function addToCart(product: Product) {
     if (product.quantity <= 0) return;
@@ -228,8 +185,7 @@ useEffect(() => {
         removeFromCart,
         decreaseQuantity,
         clearCart,
-        syncCart,
-        syncing,
+        updateValidatedItems,
         totalItems,
         totalPrice,
       }}

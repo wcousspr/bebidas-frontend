@@ -334,6 +334,9 @@ html:has(.cart-overlay[open]) {
 }
 
 .cart-checkout {
+  display: block;
+  text-align: center;
+  text-decoration: none;
   width: 100%;
   min-height: 48px;
   padding: 15px;
@@ -353,6 +356,23 @@ html:has(.cart-overlay[open]) {
 .cart-checkout:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.cart-checkout-status {
+  color: #475569;
+  font-size: 13px;
+}
+
+.cart-checkout-status:empty {
+  position: absolute;
+}
+
+.cart-cancel-checkout {
+  min-height: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #142846;
 }
 
 .cart-feedback {
