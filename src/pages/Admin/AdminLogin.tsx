@@ -1,13 +1,15 @@
 
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
+import AdminSessionCheck from "../../components/AdminSessionCheck";
 import { siteConfig } from "../../config/site";
 import { useAuth } from "../../contexts/useAuth";
+import { adminReturnTo } from "./adminReturnTo";
 import "./AdminLogin.css";
 
 export default function AdminLogin() {
-  const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { state } = useLocation();
+  const { signIn, status, message, storageWarning } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,7 +24,6 @@ export default function AdminLogin() {
     try {
       await signIn({ email, password });
       setPassword("");
-      navigate("/admin", { replace: true });
     } catch (err) {
       setError(
         err instanceof Error
@@ -33,6 +34,9 @@ export default function AdminLogin() {
       setLoading(false);
     }
   }
+
+  if (status === "checking" || status === "temporary-error") return <AdminSessionCheck />;
+  if (status === "authenticated") return <Navigate to={adminReturnTo(state)} replace />;
 
   return (
     <main className="admin-login">
@@ -74,7 +78,8 @@ export default function AdminLogin() {
             />
           </div>
 
-          {error && <p className="admin-login-error" role="alert">{error}</p>}
+          {(error || message) && <p className="admin-login-error" role="alert">{error || message}</p>}
+          {storageWarning && <p role="status">{storageWarning}</p>}
 
           <button className="admin-login-submit" type="submit" disabled={loading}>
             {loading ? "Entrando..." : "Entrar"}

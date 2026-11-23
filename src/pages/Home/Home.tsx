@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import ProductCard from "../../components/ProductCard/ProductCard";
-import { getProducts } from "../../services/product";
+import { getPublicCatalog } from "../../services/product";
 import type { Product } from "../../types/Product";
 import "./Home.css";
 
@@ -16,23 +16,23 @@ export default function Home({ search }: HomeProps) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     async function loadProducts() {
       try {
-        const data = await getProducts();
+        const data = await getPublicCatalog(controller.signal);
 
-        if (active) {
+        if (!controller.signal.aborted) {
           setProducts(data);
         }
       } catch (err) {
-        console.error("Erro ao carregar bebidas:", err);
+        if (!controller.signal.aborted) console.error("Erro ao carregar bebidas:", err);
 
-        if (active) {
+        if (!controller.signal.aborted) {
           setError("Não foi possível carregar as bebidas.");
         }
       } finally {
-        if (active) {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
@@ -41,7 +41,7 @@ export default function Home({ search }: HomeProps) {
     loadProducts();
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, []);
 

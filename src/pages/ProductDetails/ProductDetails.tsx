@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ProductCard from "../../components/ProductCard/ProductCard";
 import { siteConfig } from "../../config/site";
-import { getProducts } from "../../services/product";
+import { getPublicCatalog } from "../../services/product";
 import { useCart } from "../../contexts/useCart";
 import type { Product } from "../../types/Product";
 import ShareProduct from "./ShareProduct";
@@ -20,28 +20,28 @@ export default function ProductDetails() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     async function loadProducts() {
       try {
-        const products = await getProducts();
+        const products = await getPublicCatalog(controller.signal);
 
-        if (active) {
+        if (!controller.signal.aborted) {
           setProducts(products);
         }
       } catch {
-        if (active) {
+        if (!controller.signal.aborted) {
           setError("Não foi possível carregar o produto.");
         }
       } finally {
-        if (active) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
 
     void loadProducts();
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, []);
 

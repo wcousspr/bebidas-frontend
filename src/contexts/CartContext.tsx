@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Product } from "../types/Product";
 import { siteConfig } from "../config/site";
-import { getProducts } from "../services/product";
+import { getPublicCatalog, invalidateCatalog } from "../services/product";
 import { CartContext, type CartSyncStatus } from "./CartContextDefinition";
 import {
   addCartItem, indexProducts, needsStockReview, readCart, reconcileCart, rememberCatalog,
@@ -62,7 +62,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }, siteConfig.checkoutTimeoutMs);
 
     try {
-      const products = await getProducts({ signal: controller.signal, cache: "no-store" });
+      const products = await getPublicCatalog(controller.signal);
       if (activeSync.current !== controller) return;
 
       const catalog = indexProducts(products);
@@ -89,6 +89,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [saved, requestSync]);
 
   function syncCart() {
+    invalidateCatalog();
     setSyncStatus("syncing");
     return requestSync();
   }

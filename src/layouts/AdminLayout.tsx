@@ -6,7 +6,7 @@ import "./AdminLayout.css";
 
 export default function AdminLayout() {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, storageWarning } = useAuth();
 
   function handleLogout() {
     signOut();
@@ -61,6 +61,7 @@ export default function AdminLayout() {
       </aside>
 
       <main className="admin-layout-content">
+        {storageWarning && <p role="status">{storageWarning}</p>}
         <Outlet />
       </main>
     </div>

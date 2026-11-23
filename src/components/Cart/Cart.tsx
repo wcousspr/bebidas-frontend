@@ -4,7 +4,7 @@ import { siteConfig } from "../../config/site";
 import { indexProducts, needsStockReview, reconcileCart, type CartItem } from "../../contexts/cartState";
 import { useCart } from "../../contexts/useCart";
 import { ApiHttpError, ApiNetworkError } from "../../services/api";
-import { getProducts } from "../../services/product";
+import { getProducts, invalidateCatalog } from "../../services/product";
 import "./Cart.css";
 
 interface CartProps {
@@ -197,6 +197,7 @@ export default function Cart({ onClose }: CartProps) {
         setErroFinalizacao("O carrinho foi atualizado durante a consulta. Tente novamente.");
         return;
       }
+      invalidateCatalog();
 
       const linhas: string[] = [];
       let total = 0;

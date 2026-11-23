@@ -1,3 +1,6 @@
+import type { AdminRequest } from "./adminRequest";
+
+import { invalidateCatalog } from "./product";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -19,32 +22,22 @@ export async function getCategorias(): Promise<Categoria[]> {
 
 export async function criarCategoria(
   nome: string,
-  token: string
+  request: AdminRequest
 ): Promise<void> {
-  const response = await fetch(`${API_URL}/api/categorias`, {
+  const response = await request(`/api/categorias`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ name:nome }),
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Sua sessão expirou. Faça login novamente.");
-    }
-
     if (response.status === 403) {
       throw new Error("Você não possui permissão para cadastrar categorias.");
     }
 
-    const errorBody = await response.text();
-
-console.error("Status:", response.status);
-console.error("Resposta completa:", errorBody);
-
-throw new Error(`Erro ao cadastrar categoria (${response.status}).`);
+    throw new Error(`Erro ao cadastrar categoria (${response.status}).`);
   }
 }
 
@@ -52,22 +45,17 @@ throw new Error(`Erro ao cadastrar categoria (${response.status}).`);
 export async function atualizarCategoria(
   id: number,
   nome: string,
-  token: string
+  request: AdminRequest
 ): Promise<void> {
-  const response = await fetch(`${API_URL}/api/categorias/${id}`, {
+  const response = await request(`/api/categorias/${id}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ name: nome }),
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Sua sessão expirou. Faça login novamente.");
-    }
-
     if (response.status === 403) {
       throw new Error("Você não possui permissão para editar categorias.");
     }
@@ -78,26 +66,20 @@ export async function atualizarCategoria(
 
     throw new Error(`Erro ao atualizar categoria (${response.status}).`);
   }
+  invalidateCatalog();
 }
 
 
 
 export async function excluirCategoria(
   id: number,
-  token: string
+  request: AdminRequest
 ): Promise<void> {
-  const response = await fetch(`${API_URL}/api/categorias/${id}`, {
+  const response = await request(`/api/categorias/${id}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Sua sessão expirou. Faça login novamente.");
-    }
-
     if (response.status === 403) {
       throw new Error("Você não possui permissão para excluir categorias.");
     }
@@ -114,6 +96,7 @@ export async function excluirCategoria(
 
     throw new Error(`Erro ao excluir categoria (${response.status}).`);
   }
+  invalidateCatalog();
 }
 
 
