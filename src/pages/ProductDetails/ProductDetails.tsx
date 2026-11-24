@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ProductCard from "../../components/ProductCard/ProductCard";
+import ProductImage from "../../components/ProductImage";
 import { siteConfig } from "../../config/site";
 import { getPublicCatalog } from "../../services/product";
 import { useCart } from "../../contexts/useCart";
@@ -119,11 +120,7 @@ export default function ProductDetails() {
 
       <div className="product-details-layout">
         <div className="product-details-image">
-          {product.imageUrl ? (
-            <img src={product.imageUrl} alt={product.name} />
-          ) : (
-            <span>🥤</span>
-          )}
+          <ProductImage key={product.id} src={product.imageUrl} alt={product.name} profile="detail" />
         </div>
 
         <div className="product-details-info">
@@ -170,7 +167,7 @@ export default function ProductDetails() {
           <h2 id="related-products-title">Você também pode gostar</h2>
           <div className="products-grid">
             {relatedProducts.map((relatedProduct) => (
-              <ProductCard key={relatedProduct.id} product={relatedProduct} showCartAction={false} />
+              <ProductCard key={relatedProduct.id} product={relatedProduct} showCartAction={false} imageProfile="related" />
             ))}
           </div>
         </section>

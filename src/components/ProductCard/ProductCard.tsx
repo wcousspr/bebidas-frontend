@@ -1,17 +1,22 @@
 
 import type { Product } from "../../types/Product";
 import { useCart } from "../../contexts/useCart";
+import ProductImage from "../ProductImage";
 import "./ProductCard.css";
 import { Link } from "react-router-dom";
 
 interface ProductCardProps {
   product: Product;
   showCartAction?: boolean;
+  imageProfile?: "catalog" | "related";
+  eagerlyLoadImage?: boolean;
 }
 
 export default function ProductCard({
   product,
   showCartAction = true,
+  imageProfile = "catalog",
+  eagerlyLoadImage = false,
 }: ProductCardProps) {
   const { items, addToCart } = useCart();
 
@@ -37,16 +42,13 @@ export default function ProductCard({
         aria-label={`Ver detalhes de ${product.name}`}
       >
         <div className="product-image">
-          {product.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
-            <span className="product-placeholder">🥤</span>
-          )}
+          <ProductImage
+            src={product.imageUrl}
+            alt={product.name}
+            profile={imageProfile}
+            eager={eagerlyLoadImage}
+            placeholderClassName="product-placeholder"
+          />
         </div>
       </Link>
 

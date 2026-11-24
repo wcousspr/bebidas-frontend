@@ -5,6 +5,7 @@ import { indexProducts, needsStockReview, reconcileCart, type CartItem } from ".
 import { useCart } from "../../contexts/useCart";
 import { ApiHttpError, ApiNetworkError } from "../../services/api";
 import { getProducts, invalidateCatalog } from "../../services/product";
+import ProductImage from "../ProductImage";
 import "./Cart.css";
 
 interface CartProps {
@@ -334,16 +335,7 @@ export default function Cart({ onClose }: CartProps) {
                 return (
                   <article className="cart-item" key={productId}>
                     <div className="cart-item-image">
-                      {product?.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={name}
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      ) : (
-                        <span>🥤</span>
-                      )}
+                      <ProductImage src={product?.imageUrl} alt={name} profile="cart" />
                     </div>
 
                     <div className="cart-item-details">
