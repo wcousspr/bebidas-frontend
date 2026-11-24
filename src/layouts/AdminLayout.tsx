@@ -1,6 +1,7 @@
 
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
+import Icon from "../components/Icon";
 
 import "./AdminLayout.css";
 
@@ -29,6 +30,7 @@ export default function AdminLayout() {
               isActive ? "admin-nav-link active" : "admin-nav-link"
             }
           >
+            <Icon name="dashboard" size={18} />
             Dashboard
           </NavLink>
 
@@ -38,6 +40,7 @@ export default function AdminLayout() {
               isActive ? "admin-nav-link active" : "admin-nav-link"
             }
           >
+            <Icon name="drinks" size={18} />
             Bebidas
           </NavLink>
 
@@ -47,6 +50,7 @@ export default function AdminLayout() {
               isActive ? "admin-nav-link active" : "admin-nav-link"
             }
           >
+            <Icon name="categories" size={18} />
             Categorias
           </NavLink>
         </nav>
@@ -56,6 +60,7 @@ export default function AdminLayout() {
           className="admin-sidebar-logout"
           onClick={handleLogout}
         >
+          <Icon name="logout" size={18} />
           Sair da conta
         </button>
       </aside>

@@ -6,15 +6,17 @@
   overflow-wrap: anywhere;
   min-width: 0;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-card);
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-card);
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .product-card:hover {
-    transform: translateY(-4px);
-    border-color: #6481a8;
+
+    border-color: var(--color-accent-border);
+    box-shadow: var(--shadow-raised);
   }
 }
 
@@ -23,8 +25,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1b3052;
+  background: var(--color-surface-subtle);
   padding: 24px;
+  border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .product-image img {
@@ -46,7 +49,7 @@
 }
 
 .product-category {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 
@@ -54,6 +57,7 @@
   font-size: 16px;
   font-weight: 600;
   margin: 0;
+  line-height: 1.35;
 }
 
 .product-footer {
@@ -65,23 +69,38 @@
 }
 
 .product-footer strong {
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: var(--color-text);
 }
 
 .add-product-button {
   flex-shrink: 0;
   width: 44px;
   height: 44px;
-  border: none;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #0b1730;
+  border: var(--border-width) solid var(--color-accent-border);
+  border-radius: var(--radius-button);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   font-size: 24px;
 }
 
 .add-product-button:disabled {
-  opacity: 0.65;
+
   cursor: not-allowed;
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  border-color: var(--color-disabled-border);
+}
+
+.add-product-button:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.add-product-button:active:not(:disabled) {
+  background: var(--color-primary-active);
 }
 
 @media (max-width: 600px) {
@@ -111,7 +130,7 @@
   }
 
   .product-footer strong {
-    font-size: 15px;
+    font-size: 17px;
   }
 }
 .product-image-link,
@@ -136,5 +155,5 @@
 }
 
 .product-stock-message[data-in-stock="false"] {
-  color: #fecaca;
+  color: var(--color-error);
 }

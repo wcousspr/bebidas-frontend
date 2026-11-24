@@ -7,21 +7,18 @@
   min-height: 100vh;
   min-height: 100svh;
   padding: 32px 16px;
-  background: radial-gradient(
-    ellipse at 50% 25%,
-    var(--color-surface-hover),
-    var(--color-background) 65%
-  );
+  background: var(--color-background);
   color: var(--color-text);
 }
 
 .admin-login-card {
   width: min(100%, 440px);
   padding: clamp(24px, 6vw, 40px);
-  border: 1px solid var(--color-border);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-card);
   background: var(--color-surface);
-  box-shadow: 0 20px 48px rgb(0 0 0 / 24%);
+  box-shadow: var(--shadow-raised);
+  border-top: 4px solid var(--color-primary);
 }
 
 .admin-login-heading {
@@ -64,45 +61,43 @@
   width: 100%;
   min-height: 48px;
   padding: 10px 14px;
-  border: 1px solid #637a9c;
+  border: var(--border-width) solid var(--color-control-border);
   border-radius: var(--radius-button);
-  background: var(--color-background);
+  background: var(--color-surface);
   color: var(--color-text);
-  color-scheme: dark;
+
 }
 
 .admin-login-submit {
   min-height: 48px;
   margin-top: 8px;
   padding: 10px 16px;
-  border: 0;
+  border: var(--border-width) solid var(--color-accent-border);
   border-radius: var(--radius-button);
-  background: var(--color-text);
-  color: var(--color-background);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   font-weight: 700;
 }
 
 .admin-login-submit:hover:not(:disabled) {
-  background: var(--color-text-muted);
+  background: var(--color-primary-hover);
 }
 
 .admin-login-submit:disabled {
-  opacity: 0.7;
-  cursor: wait;
-}
 
-.admin-login :focus-visible {
-  outline: 2px solid #8faed8;
-  outline-offset: 3px;
+  cursor: wait;
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  border-color: var(--color-disabled-border);
 }
 
 .admin-login-error {
   margin: 0;
   padding: 10px 14px;
-  border: 1px solid #a65a6d;
+  border: var(--border-width) solid var(--color-error-border);
   border-radius: var(--radius-button);
-  background: #392337;
-  color: #ffd2da;
+  background: var(--color-error-bg);
+  color: var(--color-error);
   font-size: 14px;
   overflow-wrap: anywhere;
 }

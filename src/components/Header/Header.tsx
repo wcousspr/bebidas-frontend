@@ -4,6 +4,7 @@ import { Link, useMatch } from "react-router-dom";
 import { siteConfig } from "../../config/site";
 import { useCart } from "../../contexts/useCart";
 import Cart from "../Cart/Cart";
+import Icon from "../Icon";
 import "./Header.css";
 interface HeaderProps {
   search: string;
@@ -50,7 +51,7 @@ export default function Header({
                 onChange={(e) => onSearchChange(e.target.value)}
                 aria-label="Pesquisar bebidas"
               />
-              <span aria-hidden="true">⌕</span>
+              <Icon name="search" />
             </div>
           )}
 
@@ -60,7 +61,7 @@ export default function Header({
             aria-label={`Abrir carrinho com ${totalItems} itens`}
             onClick={() => setCartOpen(true)}
           >
-            🛒
+            <Icon name="cart" size={21} />
             {totalItems > 0 && <span className="cart-badge">{totalItems}</span>}
           </button>
         </div>
