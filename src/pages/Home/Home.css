@@ -36,11 +36,11 @@
 }
 
 .category-filter {
-  border: 1px solid var(--color-border);
+  border: var(--border-width) solid var(--color-control-border);
   background: var(--color-surface);
   color: var(--color-text);
   padding: 12px 20px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 13px;
   transition: background 0.2s ease;
 }
@@ -50,9 +50,10 @@
 }
 
 .category-filter.active {
-  background: #ffffff;
-  color: #0b1730;
-  border-color: #ffffff;
+  background: var(--color-primary-soft);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent-border);
+  font-weight: 700;
 }
 
 @media (max-width: 480px) {

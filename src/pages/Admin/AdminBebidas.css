@@ -1,59 +1,59 @@
-.bebidas-page { padding: 36px; color: #17243b; max-width: 1450px; margin: 0 auto; }
+.bebidas-page { padding: 36px; color: var(--color-text); max-width: 1450px; margin: 0 auto; }
 .bebidas-page-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 28px; }
 .bebidas-page-header h1 { font-size: 28px; margin: 0 0 8px; }
-.bebidas-page-header p { margin: 0; color: #64748b; }
-.bebidas-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 26px; margin-bottom: 24px; box-shadow: 0 3px 12px rgba(16,29,53,.035); }
+.bebidas-page-header p { margin: 0; color: var(--color-text-muted); }
+.bebidas-panel { background: var(--color-surface); border: var(--border-width) solid var(--color-border); border-radius: var(--radius-card); padding: 26px; margin-bottom: 24px; box-shadow: var(--shadow-card); }
 .bebidas-panel h2 { margin: 0 0 20px; font-size: 20px; }
-.bebidas-btn { font: inherit; border: 1px solid transparent; border-radius: 9px; padding: 10px 16px; cursor: pointer; font-weight: 600; transition: background .15s, border-color .15s; }
-.bebidas-btn:disabled { opacity: .55; cursor: not-allowed; }
-.bebidas-btn-primary { background: #142846; color: #fff; }
-.bebidas-btn-primary:not(:disabled):hover { background: #25466e; }
-.bebidas-btn-secondary { background: #fff; color: #243a59; border-color: #cbd5e1; }
-.bebidas-btn-secondary:not(:disabled):hover { background: #f1f5f9; }
-.bebidas-btn-danger { background: #fff; color: #b42318; border-color: #fecaca; }
-.bebidas-btn-danger:not(:disabled):hover { background: #fff1f2; }
+.bebidas-btn { font: inherit; min-height: 44px; border: var(--border-width) solid transparent; border-radius: var(--radius-button); padding: 10px 16px; cursor: pointer; font-weight: 600; transition: background .15s, border-color .15s; }
+.bebidas-btn:disabled { cursor: not-allowed; background: var(--color-disabled-bg); color: var(--color-disabled-text); border-color: var(--color-disabled-border); }
+.bebidas-btn-primary { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-accent-border); }
+.bebidas-btn-primary:not(:disabled):hover { background: var(--color-primary-hover); }
+.bebidas-btn-secondary { background: var(--color-surface); color: var(--color-text); border-color: var(--color-control-border); }
+.bebidas-btn-secondary:not(:disabled):hover { background: var(--color-surface-subtle); }
+.bebidas-btn-danger { background: var(--color-surface); color: var(--color-error); border-color: var(--color-error); }
+.bebidas-btn-danger:not(:disabled):hover { background: var(--color-error-bg); }
 .bebidas-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-.bebidas-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: 13px; font-weight: 600; color: #334155; }
+.bebidas-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: 13px; font-weight: 600; color: var(--color-text); }
 .bebidas-field-wide { grid-column: 1 / -1; }
-.bebidas-field input, .bebidas-field select, .bebidas-field textarea { font: inherit; font-size: 15px; font-weight: 400; width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: #17243b; }
+.bebidas-field input, .bebidas-field select, .bebidas-field textarea { font: inherit; font-size: 15px; font-weight: 400; width: 100%; box-sizing: border-box; padding: 11px 12px; border: var(--border-width) solid var(--color-control-border); border-radius: var(--radius-button); background: var(--color-surface); color: var(--color-text); }
 .bebidas-field textarea { resize: vertical; }
-.bebidas-field textarea:focus-visible, .bebidas-field input:focus-visible, .bebidas-field select:focus-visible, .bebidas-btn:focus-visible { outline: 2px solid #315b94; outline-offset: 2px; }
+
 .bebidas-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
-.bebidas-alert { padding: 14px 16px; border-radius: 10px; margin: 0 0 20px; }
-.bebidas-alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-.bebidas-alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.bebidas-alert { padding: 14px 16px; border-radius: var(--radius-button); margin: 0 0 20px; }
+.bebidas-alert-error { background: var(--color-error-bg); color: var(--color-error); border: var(--border-width) solid var(--color-error-border); }
+.bebidas-alert-success { background: var(--color-success-bg); color: var(--color-success); border: var(--border-width) solid var(--color-success-border); }
 .bebidas-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .bebidas-list-heading h2 { margin-bottom: 6px; }
-.bebidas-list-heading p { color: #64748b; font-size: 14px; margin: 0; }
-.bebidas-count { border-radius: 100px; background: #eef2f8; padding: 7px 12px; color: #334155; font-size: 12px; white-space: nowrap; }
+.bebidas-list-heading p { color: var(--color-text-muted); font-size: 14px; margin: 0; }
+.bebidas-count { border-radius: var(--radius-pill); background: var(--color-primary-soft); padding: 7px 12px; color: var(--color-text); font-size: 12px; white-space: nowrap; }
 .bebidas-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; margin: 24px 0; }
 .bebidas-list { display: flex; flex-direction: column; gap: 14px; }
-.bebidas-product { border: 1px solid #e2e8f0; border-radius: 13px; padding: 18px; }
+.bebidas-product { border: var(--border-width) solid var(--color-border); border-radius: var(--radius-button); padding: 18px; }
 .bebidas-product-top { display: flex; gap: 18px; align-items: center; }
-.bebidas-product-image { width: 110px; height: 110px; flex: 0 0 110px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 11px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.bebidas-product-image { width: 110px; height: 110px; flex: 0 0 110px; background: var(--color-surface-subtle); border: var(--border-width) solid var(--color-border); border-radius: var(--radius-button); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .bebidas-product-image img { width: 100%; height: 100%; object-fit: contain; }
-.bebidas-product-image span { font-size: 12px; color: #475569; text-align: center; }
+.bebidas-product-image span { font-size: 12px; color: var(--color-text-muted); text-align: center; }
 .bebidas-product-info { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
 .bebidas-product-info h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
-.bebidas-category { font-size: 13px; color: #64748b; }
-.bebidas-price { font-size: 18px; color: #142846; }
-.bebidas-stock { color: #475569; font-size: 13px; }
-.bebidas-stock-empty { color: #b42318; }
+.bebidas-category { font-size: 13px; color: var(--color-text-muted); }
+.bebidas-price { font-size: 18px; color: var(--color-text); }
+.bebidas-stock { color: var(--color-text-muted); font-size: 13px; }
+.bebidas-stock-empty { color: var(--color-error); }
 .bebidas-product-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.bebidas-edit-panel { background: #f8fafc; border-radius: 10px; padding: 20px; margin-top: 18px; }
+.bebidas-edit-panel { background: var(--color-surface-subtle); border-radius: var(--radius-button); padding: 20px; margin-top: 18px; }
 .bebidas-edit-panel h4 { margin: 0 0 18px; }
-.bebidas-upload { display: flex; gap: 12px; align-items: end; border-top: 1px solid #e2e8f0; margin-top: 18px; padding-top: 16px; flex-wrap: wrap; }
+.bebidas-upload { display: flex; gap: 12px; align-items: end; border-top: var(--border-width) solid var(--color-border); margin-top: 18px; padding-top: 16px; flex-wrap: wrap; }
 .bebidas-upload .bebidas-field { flex: 1; min-width: 190px; }
 .bebidas-upload input[type="file"] { padding: 8px; font-size: 13px; }
-.bebidas-empty { padding: 25px; text-align: center; color: #64748b; background: #f8fafc; border-radius: 10px; }
+.bebidas-empty { padding: 25px; text-align: center; color: var(--color-text-muted); background: var(--color-surface-subtle); border-radius: var(--radius-button); }
 
 .bebidas-cadastro-imagem {
   margin-top: 24px;
   margin-bottom: 24px;
   padding: 20px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
-  background: #f8fafc;
+  border: var(--border-width) dashed var(--color-control-border);
+  border-radius: var(--radius-button);
+  background: var(--color-surface-subtle);
 }
 
 .bebidas-cadastro-imagem input[type="file"] {
@@ -75,22 +75,22 @@
   max-width: 100%;
   height: 150px;
   object-fit: contain;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-button);
   padding: 8px;
 }
 
 .bebidas-preview-placeholder {
   display: grid;
   place-items: center;
-  color: #475569;
+  color: var(--color-text-muted);
 }
 
 .bebidas-imagem-nome {
   margin-top: 12px;
   font-size: 13px;
-  color: #64748b;
+  color: var(--color-text-muted);
   overflow-wrap: anywhere;
 }
 

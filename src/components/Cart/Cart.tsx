@@ -5,6 +5,7 @@ import { indexProducts, needsStockReview, reconcileCart, type CartItem } from ".
 import { useCart } from "../../contexts/useCart";
 import { ApiHttpError, ApiNetworkError } from "../../services/api";
 import { getProducts, invalidateCatalog } from "../../services/product";
+import Icon from "../Icon";
 import ProductImage from "../ProductImage";
 import "./Cart.css";
 
@@ -318,7 +319,7 @@ export default function Cart({ onClose }: CartProps) {
           )}
           {items.length === 0 ? (
             <div className="cart-empty">
-              <span>🛒</span>
+              <Icon name="cart" size={40} />
               <h3>Seu carrinho está vazio</h3>
               <p>Adicione algumas bebidas para começar.</p>
 
