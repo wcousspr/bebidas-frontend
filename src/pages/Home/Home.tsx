@@ -108,10 +108,11 @@ export default function Home({ search }: HomeProps) {
             <p>Nenhuma bebida encontrada.</p>
           ) : (
             <div className="products-grid">
-              {filteredProducts.map((product) => (
+              {filteredProducts.map((product, index) => (
                 <ProductCard
                   key={product.id}
                   product={product}
+                  eagerlyLoadImage={index === 0}
                 />
               ))}
             </div>

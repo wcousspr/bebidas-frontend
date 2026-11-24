@@ -32,7 +32,7 @@
 .bebidas-product-top { display: flex; gap: 18px; align-items: center; }
 .bebidas-product-image { width: 110px; height: 110px; flex: 0 0 110px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 11px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .bebidas-product-image img { width: 100%; height: 100%; object-fit: contain; }
-.bebidas-product-image span { font-size: 12px; color: #94a3b8; text-align: center; }
+.bebidas-product-image span { font-size: 12px; color: #475569; text-align: center; }
 .bebidas-product-info { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
 .bebidas-product-info h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
 .bebidas-category { font-size: 13px; color: #64748b; }
@@ -69,14 +69,22 @@
   flex-wrap: wrap;
 }
 
-.bebidas-cadastro-preview img {
+.bebidas-cadastro-preview img,
+.bebidas-preview-placeholder {
   width: 150px;
+  max-width: 100%;
   height: 150px;
   object-fit: contain;
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 8px;
+}
+
+.bebidas-preview-placeholder {
+  display: grid;
+  place-items: center;
+  color: #475569;
 }
 
 .bebidas-imagem-nome {

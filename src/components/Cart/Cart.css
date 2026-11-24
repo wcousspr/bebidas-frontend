@@ -460,11 +460,6 @@ html:has(.cart-overlay[open]) {
     padding: 10px;
   }
 
-  .cart-quantity button {
-    width: 44px;
-    height: 44px;
-  }
-
   .cart-remove,
   .cart-clear {
     min-height: 44px;
@@ -478,6 +473,13 @@ html:has(.cart-overlay[open]) {
 
   .cart-checkout {
     padding-block: 10px;
+  }
+}
+
+@media (max-width: 600px), (any-pointer: coarse) {
+  .cart-quantity button {
+    width: 44px;
+    height: 44px;
   }
 }
 

@@ -28,7 +28,7 @@
 }
 
 .product-details-image {
-  min-height: 420px;
+  height: 420px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -40,7 +40,8 @@
 
 .product-details-image img {
   width: 100%;
-  max-height: 420px;
+  height: 100%;
+  min-width: 0;
   object-fit: contain;
 }
 
@@ -183,13 +184,8 @@
   }
 
   .product-details-image {
-    min-height: 0;
     height: clamp(180px, 60vw, 320px);
     padding: 16px;
-  }
-
-  .product-details-image img {
-    height: 100%;
   }
 
   .product-details-info {

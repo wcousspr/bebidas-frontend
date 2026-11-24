@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "../../contexts/useAuth";
+import ProductImage from "../../components/ProductImage";
 import { getCategorias, type Categoria } from "../../services/categoriasService";
 import {
   criarBebida,
@@ -431,9 +432,12 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
 
                 {previewImagem && (
                   <div className="bebidas-cadastro-preview">
-                    <img
+                    <ProductImage
                       src={previewImagem}
                       alt="Prévia da imagem selecionada"
+                      profile="preview"
+                      placeholder="Sem prévia"
+                      placeholderClassName="bebidas-preview-placeholder"
                     />
 
                     <button
@@ -505,11 +509,7 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
                 <article className="bebidas-product" key={bebida.id}>
                   <div className="bebidas-product-top">
                     <div className="bebidas-product-image">
-                      {bebida.imageUrl ? (
-                        <img src={bebida.imageUrl} alt={bebida.name} loading="lazy" />
-                      ) : (
-                        <span>Sem imagem</span>
-                      )}
+                      <ProductImage src={bebida.imageUrl} alt={bebida.name} profile="admin" placeholder="Sem imagem" />
                     </div>
                     <div className="bebidas-product-info">
                       <h3>{bebida.name}</h3>
