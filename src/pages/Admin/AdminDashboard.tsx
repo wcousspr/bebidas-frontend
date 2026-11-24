@@ -1,55 +1,18 @@
 
-import { useEffect, useState } from "react";
+import { useAdminQuery } from "./useAdminOperations";
 import { Link } from "react-router-dom";
 
-import { getBebidas, type Bebida } from "../../services/bebidasService";
-import {
-  getCategorias,
-  type Categoria,
-} from "../../services/categoriasService";
+import { getBebidas } from "../../services/bebidasService";
+import { getCategorias } from "../../services/categoriasService";
 
 import "./AdminDashboard.css";
 
 export default function AdminDashboard() {
-  const [bebidas, setBebidas] = useState<Bebida[]>([]);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let ativo = true;
-
-    async function carregarDados() {
-      try {
-        const [dadosBebidas, dadosCategorias] = await Promise.all([
-          getBebidas(),
-          getCategorias(),
-        ]);
-
-        if (!ativo) return;
-
-        setBebidas(dadosBebidas);
-        setCategorias(dadosCategorias);
-      } catch {
-        if (ativo) {
-          setError("Não foi possível carregar os indicadores.");
-        }
-      } finally {
-        if (ativo) {
-          setLoading(false);
-        }
-      }
-    }
-
-    carregarDados();
-
-    return () => {
-      ativo = false;
-    };
-  }, []);
-
+  const produtos = useAdminQuery(getBebidas);
+  const categorias = useAdminQuery(getCategorias);
+  const bebidas = produtos.data ?? [];
   const totalProdutos = bebidas.length;
-  const totalCategorias = categorias.length;
+  const totalCategorias = categorias.data?.length;
 
   const unidadesEstoque = bebidas.reduce(
     (total, bebida) => total + bebida.quantity,
@@ -69,41 +32,47 @@ export default function AdminDashboard() {
 
   return (
     <div className="admin-dashboard">
-      <main className="admin-content">
+      <div className="admin-content">
         <div className="admin-heading">
           <h2>Visão geral</h2>
           <p>Acompanhe os dados da distribuidora.</p>
         </div>
 
-        {loading ? (
-          <p>Carregando indicadores...</p>
-        ) : error ? (
-          <p role="alert" className="admin-error">
-            {error}
-          </p>
-        ) : (
-          <section className="admin-stats">
-            <div className="admin-stat-card">
-              <span>Produtos cadastrados</span>
-              <strong>{totalProdutos}</strong>
-            </div>
-
-            <div className="admin-stat-card">
-              <span>Categorias</span>
-              <strong>{totalCategorias}</strong>
-            </div>
-
-            <div className="admin-stat-card">
-              <span>Unidades em estoque</span>
-              <strong>{unidadesEstoque}</strong>
-            </div>
-
-            <div className="admin-stat-card">
-              <span>Valor do estoque</span>
-              <strong>{formatarMoeda(valorEstoque)}</strong>
-            </div>
-          </section>
+        {(produtos.loading || categorias.loading) && <p role="status">Carregando indicadores...</p>}
+        {produtos.error && (
+          <div>
+            <p role="alert" className="admin-error">Indicadores de bebidas indisponíveis. {produtos.error}</p>
+            <button type="button" onClick={produtos.refresh}>Consultar bebidas novamente</button>
+          </div>
         )}
+        {categorias.error && (
+          <div>
+            <p role="alert" className="admin-error">Total de categorias indisponível. {categorias.error}</p>
+            <button type="button" onClick={categorias.refresh}>Consultar categorias novamente</button>
+          </div>
+        )}
+
+        <section className="admin-stats" aria-label="Indicadores">
+          <div className="admin-stat-card">
+            <span>Produtos cadastrados</span>
+            <strong>{produtos.data ? totalProdutos : "—"}</strong>
+          </div>
+
+          <div className="admin-stat-card">
+            <span>Categorias</span>
+            <strong>{totalCategorias ?? "—"}</strong>
+          </div>
+
+          <div className="admin-stat-card">
+            <span>Unidades em estoque</span>
+            <strong>{produtos.data ? unidadesEstoque : "—"}</strong>
+          </div>
+
+          <div className="admin-stat-card">
+            <span>Valor do estoque</span>
+            <strong>{produtos.data ? formatarMoeda(valorEstoque) : "—"}</strong>
+          </div>
+        </section>
 
         <section className="admin-management">
           <h2>Gerenciamento</h2>
@@ -134,7 +103,7 @@ export default function AdminDashboard() {
             </Link>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }
