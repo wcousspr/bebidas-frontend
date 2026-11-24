@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useAuth } from "../../contexts/useAuth";
+import { useAdminMutation, useAdminQuery } from "./useAdminOperations";
 import {
   getCategorias,
   criarCategoria,
@@ -9,23 +9,20 @@ import {
 } from "../../services/categoriasService";
 import "./AdminCategorias.css";
 
+const listaVazia: Categoria[] = [];
+
 export default function AdminCategorias() {
-  const { request } = useAuth();
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const { data, setData, loading, error: erroConsulta, refresh } = useAdminQuery(getCategorias);
+  const categorias = data ?? listaVazia;
+  const {
+    executar, reconciliar, operacao, pendenteRevisao, limparMensagens,
+    error, success, setError, setSuccess, ocupado,
+  } = useAdminMutation(refresh, loading);
   const [nome, setNome] = useState("");
   const [busca, setBusca] = useState("");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [nomeEditado, setNomeEditado] = useState("");
-  const [updating, setUpdating] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  const ocupado = saving || updating || deletingId !== null;
-
   const categoriasFiltradas = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     return categorias.filter((categoria) =>
@@ -33,36 +30,16 @@ export default function AdminCategorias() {
     );
   }, [categorias, busca]);
 
-  async function carregarCategorias() {
-    const dados = await getCategorias();
-    setCategorias(dados);
-  }
-
   useEffect(() => {
-    let ativo = true;
-
-    getCategorias()
-      .then((dados) => {
-        if (ativo) setCategorias(dados);
-      })
-      .catch(() => {
-        if (ativo) setError("Erro ao carregar categorias.");
-      })
-      .finally(() => {
-        if (ativo) setLoading(false);
-      });
-
-    return () => {
-      ativo = false;
-    };
-  }, []);
+    if (mostrarFormulario) document.getElementById("ac-nome")?.focus();
+    if (editandoId !== null) document.getElementById(`ac-editar-${editandoId}`)?.focus();
+  }, [mostrarFormulario, editandoId]);
 
   function iniciarEdicao(categoria: Categoria) {
     if (ocupado) return;
     setEditandoId(categoria.id);
     setNomeEditado(categoria.name);
-    setError("");
-    setSuccess("");
+    limparMensagens();
   }
 
   function cancelarEdicao() {
@@ -70,90 +47,57 @@ export default function AdminCategorias() {
     setNomeEditado("");
   }
 
-  async function salvarEdicao(id: number) {
-    if (!request || ocupado) return;
-    const nomeLimpo = nomeEditado.trim();
-
-    if (nomeLimpo.length < 2 || nomeLimpo.length > 100) {
-      setError("O nome deve ter entre 2 e 100 caracteres.");
-      return;
-    }
-
-    setUpdating(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      await atualizarCategoria(id, nomeLimpo, request);
-      // A edição já foi confirmada pela API; atualizamos a lista local.
-      setCategorias((anteriores) =>
-        anteriores.map((categoria) =>
-          categoria.id === id ? { ...categoria, name: nomeLimpo } : categoria
-        )
-      );
-      cancelarEdicao();
-      setSuccess("Categoria atualizada com sucesso!");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado ao atualizar categoria.");
-    } finally {
-      setUpdating(false);
-    }
+  function fecharEdicao() {
+    cancelarEdicao();
+    document.getElementById("ac-busca")?.focus();
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function fecharCadastro() {
+    setMostrarFormulario(false);
+    document.getElementById("ac-nova")?.focus();
+  }
+
+  function nomeValido(valor: string) {
+    if (valor.length >= 2 && valor.length <= 100) return true;
+    setError("O nome deve ter entre 2 e 100 caracteres.");
+    return false;
+  }
+
+  function salvarEdicao(id: number) {
+    return executar("edicao", id, async (request, current) => {
+      const nomeLimpo = nomeEditado.trim();
+      if (!nomeValido(nomeLimpo)) return;
+      await atualizarCategoria(id, nomeLimpo, request);
+      if (!current()) return;
+      setData((lista) => lista?.map((item) => item.id === id ? { ...item, name: nomeLimpo } : item));
+      cancelarEdicao();
+      setSuccess("Categoria atualizada com sucesso!");
+    });
+  }
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!request || ocupado) return;
-    const nomeLimpo = nome.trim();
-
-    if (nomeLimpo.length < 2 || nomeLimpo.length > 100) {
-      setError("O nome deve ter entre 2 e 100 caracteres.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-    setSuccess("");
-
-    try {
+    return executar("cadastro", undefined, async (request, current) => {
+      const nomeLimpo = nome.trim();
+      if (!nomeValido(nomeLimpo)) return;
       await criarCategoria(nomeLimpo, request);
+      if (!current()) return;
       setNome("");
       setMostrarFormulario(false);
       setSuccess("Categoria cadastrada com sucesso!");
-      try {
-        await carregarCategorias();
-      } catch {
-        setError("Categoria cadastrada, mas não foi possível atualizar a lista. Recarregue a página.");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado ao cadastrar categoria.");
-    } finally {
-      setSaving(false);
-    }
+      await refresh();
+    });
   }
 
-  async function handleExcluir(categoria: Categoria) {
-    if (!request || ocupado) return;
-    const confirmou = window.confirm(
-      `Tem certeza que deseja excluir a categoria "${categoria.name}"?\n\nCategorias com bebidas vinculadas não podem ser excluídas.`
-    );
-    if (!confirmou) return;
-
-    setDeletingId(categoria.id);
-    setError("");
-    setSuccess("");
-
-    try {
+  function handleExcluir(categoria: Categoria) {
+    return executar("exclusao", categoria.id, async (request, current) => {
       await excluirCategoria(categoria.id, request);
-      setCategorias((anteriores) =>
-        anteriores.filter((item) => item.id !== categoria.id)
-      );
-      if (editandoId === categoria.id) cancelarEdicao();
+      if (!current()) return;
+      setData((lista) => lista?.filter((item) => item.id !== categoria.id));
       setSuccess("Categoria excluída com sucesso!");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado ao excluir categoria.");
-    } finally {
-      setDeletingId(null);
-    }
+    }, () => window.confirm(
+      `Tem certeza que deseja excluir a categoria "${categoria.name}"?\n\nCategorias com bebidas vinculadas não podem ser excluídas.`
+    ));
   }
 
   return (
@@ -166,12 +110,12 @@ export default function AdminCategorias() {
         <button
           type="button"
           className="ac-button ac-button-primary"
+          id="ac-nova"
           onClick={() => {
             setMostrarFormulario((anterior) => !anterior);
-            setError("");
-            setSuccess("");
+            limparMensagens();
           }}
-          disabled={ocupado}
+          disabled={ocupado || !data}
           aria-expanded={mostrarFormulario}
           aria-controls="ac-formulario"
         >
@@ -181,11 +125,19 @@ export default function AdminCategorias() {
 
       {error && <p className="ac-message ac-message-error" role="alert">{error}</p>}
       {success && <p className="ac-message ac-message-success" role="status">{success}</p>}
+      {operacao && <p role="status">Processando operação…</p>}
+      {erroConsulta && <p className="ac-message ac-message-error" role="alert">Falha ao atualizar as categorias. {erroConsulta}</p>}
+      {(erroConsulta || pendenteRevisao) && (
+        <button type="button" className="ac-button ac-button-secondary" disabled={loading || !!operacao}
+          onClick={reconciliar}>Consultar dados atualizados</button>
+      )}
+      {loading && <p role="status">Carregando categorias...</p>}
 
       {mostrarFormulario && (
         <section className="ac-panel" id="ac-formulario">
           <h2>Cadastrar nova categoria</h2>
-          <form onSubmit={handleSubmit} className="ac-form">
+          <form onSubmit={handleSubmit} className="ac-form"
+            onKeyDown={(e) => { if (e.key === "Escape" && !ocupado) fecharCadastro(); }}>
             <div className="ac-field">
               <label htmlFor="ac-nome">Nome da categoria</label>
               <input
@@ -201,10 +153,10 @@ export default function AdminCategorias() {
               />
             </div>
             <div className="ac-actions">
-              <button type="submit" className="ac-button ac-button-primary" disabled={ocupado || !request}>
-                {saving ? "Salvando..." : "Cadastrar categoria"}
+              <button type="submit" className="ac-button ac-button-primary" disabled={ocupado}>
+                {operacao?.tipo === "cadastro" ? "Salvando..." : "Cadastrar categoria"}
               </button>
-              <button type="button" className="ac-button ac-button-secondary" disabled={ocupado} onClick={() => setMostrarFormulario(false)}>
+              <button type="button" className="ac-button ac-button-secondary" disabled={ocupado} onClick={fecharCadastro}>
                 Cancelar
               </button>
             </div>
@@ -229,9 +181,7 @@ export default function AdminCategorias() {
           />
         </div>
 
-        {loading ? (
-          <p className="ac-empty">Carregando categorias...</p>
-        ) : categorias.length === 0 ? (
+        {!data ? null : categorias.length === 0 ? (
           <p className="ac-empty">Nenhuma categoria cadastrada.</p>
         ) : categoriasFiltradas.length === 0 ? (
           <p className="ac-empty">Nenhuma categoria encontrada para essa busca.</p>
@@ -256,15 +206,15 @@ export default function AdminCategorias() {
                             e.preventDefault();
                             void salvarEdicao(categoria.id);
                           }
-                          if (e.key === "Escape" && !ocupado) cancelarEdicao();
+                          if (e.key === "Escape" && !ocupado) fecharEdicao();
                         }}
                       />
                     </div>
                     <div className="ac-actions">
-                      <button type="button" className="ac-button ac-button-primary" onClick={() => salvarEdicao(categoria.id)} disabled={ocupado || !request}>
-                        {updating ? "Salvando..." : "Salvar alterações"}
+                      <button type="button" className="ac-button ac-button-primary" onClick={() => salvarEdicao(categoria.id)} disabled={ocupado}>
+                        {operacao?.tipo === "edicao" ? "Salvando..." : "Salvar alterações"}
                       </button>
-                      <button type="button" className="ac-button ac-button-secondary" onClick={cancelarEdicao} disabled={ocupado}>
+                      <button type="button" className="ac-button ac-button-secondary" onClick={fecharEdicao} disabled={ocupado}>
                         Cancelar
                       </button>
                     </div>
@@ -282,8 +232,8 @@ export default function AdminCategorias() {
                       <button type="button" className="ac-button ac-button-secondary" onClick={() => iniciarEdicao(categoria)} disabled={ocupado}>
                         Editar
                       </button>
-                      <button type="button" className="ac-button ac-button-danger" onClick={() => handleExcluir(categoria)} disabled={ocupado}>
-                        {deletingId === categoria.id ? "Excluindo..." : "Excluir"}
+                      <button type="button" className="ac-button ac-button-danger" onClick={() => handleExcluir(categoria)} disabled={ocupado} aria-label={`Excluir ${categoria.name}`}>
+                        {operacao?.tipo === "exclusao" && operacao.id === categoria.id ? "Excluindo..." : "Excluir"}
                       </button>
                     </div>
                   </div>

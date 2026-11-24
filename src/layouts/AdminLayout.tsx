@@ -21,7 +21,7 @@ export default function AdminLayout() {
           <p>Painel administrativo</p>
         </div>
 
-        <nav className="admin-sidebar-nav">
+        <nav className="admin-sidebar-nav" aria-label="Navegação administrativa">
           <NavLink
             to="/admin"
             end

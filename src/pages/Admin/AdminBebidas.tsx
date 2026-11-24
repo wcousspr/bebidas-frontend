@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useAuth } from "../../contexts/useAuth";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useAdminMutation, useAdminQuery } from "./useAdminOperations";
 import ProductImage from "../../components/ProductImage";
 import { getCategorias, type Categoria } from "../../services/categoriasService";
 import {
@@ -30,6 +30,7 @@ const formularioVazio: Formulario = {
 };
 
 const limiteDescricao = 1000;
+const listaVazia: Bebida[] = [];
 
 const formatarMoeda = (valor: number) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -62,57 +63,71 @@ function validarFormulario(form: Formulario, categorias: Categoria[]): CreateBeb
   return { name, price, quantity, categoryId, description: description || null };
 }
 
+const tiposImagem = ["image/jpeg", "image/png", "image/webp"];
+
+function validarImagem(arquivo: File) {
+  if (!tiposImagem.includes(arquivo.type)) return "Selecione uma imagem JPG, PNG ou WebP.";
+  if (arquivo.size === 0 || arquivo.size > 5 * 1024 * 1024) {
+    return "A imagem deve ter mais de 0 bytes e no máximo 5 MB.";
+  }
+  return "";
+}
+
+function PreviewImagem({ arquivo }: { arquivo: File }) {
+  const preview = useCallback((image: HTMLImageElement | null) => {
+    if (!image) return;
+    const url = URL.createObjectURL(arquivo);
+    image.src = url;
+    return () => URL.revokeObjectURL(url);
+  }, [arquivo]);
+
+  return <img ref={preview} alt="Prévia da imagem selecionada" />;
+}
+
 export default function AdminBebidas() {
-  const { request } = useAuth();
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [bebidas, setBebidas] = useState<Bebida[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [erroCarregamento, setErroCarregamento] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const consultaCategorias = useAdminQuery(getCategorias);
+  const consultaBebidas = useAdminQuery(getBebidas);
+  const categorias = consultaCategorias.data ?? [];
+  const bebidas = consultaBebidas.data ?? listaVazia;
+  const loading = consultaCategorias.loading || consultaBebidas.loading;
+  const erroCarregamento = consultaBebidas.error || consultaCategorias.error;
+
+  async function consultar(revisao: boolean) {
+    const [listaOk, categoriasOk] = await Promise.all([
+      revisao || consultaBebidas.error ? consultaBebidas.refresh() : true,
+      consultaCategorias.error ? consultaCategorias.refresh() : true,
+    ]);
+    return listaOk && categoriasOk;
+  }
+
+  const {
+    executar, reconciliar, operacao, pendenteRevisao, limparMensagens,
+    error, success, setError, setSuccess, registrarErro, ocupado,
+  } = useAdminMutation(consultar, loading);
   const [mostrarCadastro, setMostrarCadastro] = useState(false);
   const [cadastro, setCadastro] = useState<Formulario>(formularioVazio);
   const [imagemCadastro, setImagemCadastro] = useState<File | null>(null);
-  const [previewImagem, setPreviewImagem] = useState<string | null>(null);
   const [edicao, setEdicao] = useState<Formulario>(formularioVazio);
   const [editandoId, setEditandoId] = useState<number | null>(null);
-  const [arquivos, setArquivos] = useState<Record<number, File | null>>({});
-  const [operacao, setOperacao] = useState<"cadastro" | "edicao" | "exclusao" | "upload" | null>(null);
-  const [operacaoId, setOperacaoId] = useState<number | null>(null);
+  const [arquivos, setArquivos] = useState<Record<number, File>>({});
+  const [imagemPendenteId, setImagemPendenteId] = useState<number | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
-  const arquivoInputs = useRef<Record<number, HTMLInputElement | null>>({});
-  const ocupado = operacao !== null;
+  const categoriaFiltrada = categorias.find((item) => String(item.id) === filtroCategoria)?.name;
+  const bebidaPendente = bebidas.find((item) => item.id === imagemPendenteId);
 
   useEffect(() => {
-    let ativo = true;
-    Promise.all([getCategorias(), getBebidas()])
-      .then(([listaCategorias, listaBebidas]) => {
-        if (!ativo) return;
-        setCategorias(listaCategorias);
-        setBebidas(listaBebidas);
-      })
-      .catch(() => {
-        if (ativo) setErroCarregamento("Não foi possível carregar bebidas e categorias. Atualize a página para tentar novamente.");
-      })
-      .finally(() => {
-        if (ativo) setLoading(false);
-      });
-    return () => { ativo = false; };
-  }, []);
+    if (mostrarCadastro) document.getElementById("cadastro-nome")?.focus();
+    if (editandoId !== null) document.getElementById(`editar-${editandoId}-nome`)?.focus();
+  }, [mostrarCadastro, editandoId]);
 
   const bebidasFiltradas = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     return bebidas.filter((bebida) =>
       bebida.name.toLocaleLowerCase("pt-BR").includes(termo) &&
-      (!filtroCategoria || bebida.category === filtroCategoria)
+      (!categoriaFiltrada || bebida.category === categoriaFiltrada)
     );
-  }, [bebidas, busca, filtroCategoria]);
-
-  function limparMensagens() {
-    setError("");
-    setSuccess("");
-  }
+  }, [bebidas, busca, categoriaFiltrada]);
 
   function iniciarEdicao(bebida: Bebida) {
     if (ocupado) return;
@@ -134,196 +149,110 @@ export default function AdminBebidas() {
   }
 
   function cancelarEdicao() {
+    if (editandoId !== null) document.getElementById(`editar-bebida-${editandoId}`)?.focus();
     setEditandoId(null);
     setEdicao(formularioVazio);
   }
 
 
-function selecionarImagemCadastro(arquivo: File | null) {
-  if (previewImagem) {
-    URL.revokeObjectURL(previewImagem);
+  function selecionarImagemCadastro(arquivo: File | null) {
+    if (ocupado) return;
+    const erro = arquivo ? validarImagem(arquivo) : "";
+    if (!erro) setImagemCadastro(arquivo);
+    setError(erro);
   }
 
-  setImagemCadastro(null);
-  setPreviewImagem(null);
-
-  if (!arquivo) return;
-
-  if (!["image/jpeg", "image/png", "image/webp"].includes(arquivo.type)) {
-    setError("Selecione uma imagem JPG, PNG ou WebP.");
-    return;
+  function selecionarArquivo(id: number, arquivo: File | null) {
+    if (ocupado || !arquivo) return;
+    const erro = validarImagem(arquivo);
+    if (!erro) setArquivos((anteriores) => ({ ...anteriores, [id]: arquivo }));
+    setError(erro);
   }
 
-  if (arquivo.size === 0 || arquivo.size > 5 * 1024 * 1024) {
-    setError("A imagem deve ter mais de 0 bytes e no máximo 5 MB.");
-    return;
+  function removerArquivo(id: number) {
+    setArquivos((anteriores) => {
+      const restantes = { ...anteriores };
+      delete restantes[id];
+      return restantes;
+    });
+    setImagemPendenteId((pendente) => pendente === id ? null : pendente);
   }
 
-  setImagemCadastro(arquivo);
-  setPreviewImagem(URL.createObjectURL(arquivo));
-  setError("");
-}
+  function handleCadastrar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    return executar("cadastro", undefined, async (request, current) => {
+      let dados: CreateBebida;
+      try {
+        dados = validarFormulario(cadastro, categorias);
+      } catch (err) {
+        if (err instanceof Error) setError(err.message);
+        return;
+      }
 
+      const id = await criarBebida(dados, request);
+      if (!current()) return;
+      setCadastro(formularioVazio);
+      setImagemCadastro(null);
+      setMostrarCadastro(false);
+      setSuccess("Bebida cadastrada com sucesso!");
 
+      if (imagemCadastro && id !== null) {
+        try {
+          await uploadImagemBebida(id, imagemCadastro, request);
+          if (!current()) return;
+          setSuccess("Bebida e imagem cadastradas com sucesso!");
+        } catch (err) {
+          if (!current()) return;
+          setArquivos((anteriores) => ({ ...anteriores, [id]: imagemCadastro }));
+          setImagemPendenteId(id);
+          registrarErro(err, `A bebida foi cadastrada (ID ${id}), mas o envio da imagem não foi confirmado.`);
+        }
+      } else if (imagemCadastro) {
+        setError("A bebida foi cadastrada, mas faltou o identificador para enviar a imagem. Localize a bebida na lista e selecione a imagem novamente.");
+      }
 
-
-
-
-  
-async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
-  event.preventDefault();
-
-  if (!request || ocupado) return;
-
-  let dados: CreateBebida;
-
-  try {
-    dados = validarFormulario(cadastro, categorias);
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "Dados inválidos.");
-    return;
+      await consultaBebidas.refresh();
+    });
   }
 
-  setOperacao("cadastro");
-  limparMensagens();
-
-  let bebidaCriadaId: number;
-
-  try {
-    bebidaCriadaId = await criarBebida(dados, request);
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Erro inesperado ao cadastrar bebida."
-    );
-    setOperacao(null);
-    return;
-  }
-
-  let mensagem = "Bebida cadastrada com sucesso!";
-  let erroUpload = "";
-
-  if (imagemCadastro) {
-    try {
-      await uploadImagemBebida(
-        bebidaCriadaId,
-        imagemCadastro,
-        request
-      );
-
-      mensagem = "Bebida e imagem cadastradas com sucesso!";
-    } catch (err) {
-      erroUpload =
-        `A bebida foi cadastrada (ID ${bebidaCriadaId}), ` +
-        "mas não foi possível enviar a imagem. " +
-        "Você pode adicioná-la pela listagem. " +
-        (err instanceof Error ? err.message : "");
-    }
-  }
-
-  setCadastro(formularioVazio);
-  setImagemCadastro(null);
-
-  if (previewImagem) {
-    URL.revokeObjectURL(previewImagem);
-  }
-
-  setPreviewImagem(null);
-  setMostrarCadastro(false);
-  setSuccess(mensagem);
-
-  if (erroUpload) {
-    setError(erroUpload);
-  }
-
-  try {
-    setBebidas(await getBebidas());
-  } catch {
-    setError(
-      (erroUpload ? erroUpload + " " : "") +
-      "Não foi possível atualizar a listagem. Atualize a página."
-    );
-  } finally {
-    setOperacao(null);
-  }
-}
-
-  async function handleSalvarEdicao(id: number) {
-    if (!request || ocupado) return;
-    let dados: CreateBebida;
-    try {
-      dados = validarFormulario(edicao, categorias);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Dados inválidos.");
-      return;
-    }
-    setOperacao("edicao");
-    setOperacaoId(id);
-    limparMensagens();
-    try {
+  function handleSalvarEdicao(id: number) {
+    return executar("edicao", id, async (request, current) => {
+      let dados: CreateBebida;
+      try {
+        dados = validarFormulario(edicao, categorias);
+      } catch (err) {
+        if (err instanceof Error) setError(err.message);
+        return;
+      }
       await atualizarBebida(id, dados, request);
+      if (!current()) return;
       cancelarEdicao();
       setSuccess("Bebida atualizada com sucesso!");
-      try {
-        setBebidas(await getBebidas());
-      } catch {
-        setError("A bebida foi atualizada, mas não foi possível atualizar a listagem. Atualize a página.");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado ao atualizar bebida.");
-    } finally {
-      setOperacao(null);
-      setOperacaoId(null);
-    }
+      await consultaBebidas.refresh();
+    });
   }
 
-  async function handleExcluir(bebida: Bebida) {
-    if (!request || ocupado) return;
-    if (!window.confirm(`Tem certeza que deseja excluir "${bebida.name}"?\n\nO produto será removido do catálogo.`)) return;
-    setOperacao("exclusao");
-    setOperacaoId(bebida.id);
-    limparMensagens();
-    try {
+  function handleExcluir(bebida: Bebida) {
+    return executar("exclusao", bebida.id, async (request, current) => {
       await excluirBebida(bebida.id, request);
-      setBebidas((anteriores) => anteriores.filter((item) => item.id !== bebida.id));
+      if (!current()) return;
+      consultaBebidas.setData((lista) => lista?.filter((item) => item.id !== bebida.id));
+      removerArquivo(bebida.id);
       if (editandoId === bebida.id) cancelarEdicao();
       setSuccess(`Bebida "${bebida.name}" excluída com sucesso!`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado ao excluir bebida.");
-    } finally {
-      setOperacao(null);
-      setOperacaoId(null);
-    }
+    }, () => window.confirm(`Tem certeza que deseja excluir "${bebida.name}"?\n\nO produto será removido do catálogo.`));
   }
 
-  async function handleUploadImagem(id: number) {
-    if (!request || ocupado) return;
-    const arquivo = arquivos[id];
-    if (!arquivo) { setError("Selecione uma imagem antes de enviar."); return; }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(arquivo.type)) {
-      setError("Selecione uma imagem JPG, PNG ou WebP."); return;
-    }
-    if (arquivo.size === 0 || arquivo.size > 5 * 1024 * 1024) {
-      setError("A imagem deve ter mais de 0 bytes e no máximo 5 MB."); return;
-    }
-    setOperacao("upload");
-    setOperacaoId(id);
-    limparMensagens();
-    try {
-      const imageUrl = await uploadImagemBebida(id, arquivo, request);
-      setBebidas((anteriores) => anteriores.map((bebida) =>
-        bebida.id === id ? { ...bebida, imageUrl } : bebida
-      ));
-      setArquivos((anteriores) => ({ ...anteriores, [id]: null }));
-      if (arquivoInputs.current[id]) arquivoInputs.current[id]!.value = "";
+  function handleUploadImagem(id: number) {
+    return executar("upload", id, async (request, current) => {
+      const arquivo = arquivos[id];
+      if (!arquivo) return;
+      await uploadImagemBebida(id, arquivo, request);
+      if (!current()) return;
+      removerArquivo(id);
       setSuccess("Imagem enviada com sucesso!");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado ao enviar imagem.");
-    } finally {
-      setOperacao(null);
-      setOperacaoId(null);
-    }
+      await consultaBebidas.refresh();
+    });
   }
 
   function camposFormulario(form: Formulario, setForm: (form: Formulario) => void, prefixo: string) {
@@ -380,8 +309,8 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
           <h1>Gerenciar bebidas</h1>
           <p>Cadastre e organize os produtos da distribuidora.</p>
         </div>
-        <button className="bebidas-btn bebidas-btn-primary" type="button"
-          disabled={ocupado || loading || categorias.length === 0 || !!erroCarregamento}
+        <button className="bebidas-btn bebidas-btn-primary" type="button" id="nova-bebida" aria-expanded={mostrarCadastro}
+          disabled={ocupado || categorias.length === 0}
           onClick={() => {
             if (mostrarCadastro) {
               setMostrarCadastro(false);
@@ -397,17 +326,39 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
 
       {error && <p className="bebidas-alert bebidas-alert-error" role="alert">{error}</p>}
       {success && <p className="bebidas-alert bebidas-alert-success" role="status">{success}</p>}
-      {erroCarregamento && <p className="bebidas-alert bebidas-alert-error" role="alert">{erroCarregamento}</p>}
-      {loading && <p>Carregando produtos e categorias...</p>}
+      {erroCarregamento && <p className="bebidas-alert bebidas-alert-error" role="alert">Falha ao atualizar a listagem. {erroCarregamento}</p>}
+      {(erroCarregamento || pendenteRevisao) && (
+        <button type="button" className="bebidas-btn bebidas-btn-secondary" disabled={loading || !!operacao}
+          onClick={reconciliar}>Consultar dados atualizados</button>
+      )}
+      {imagemPendenteId !== null && arquivos[imagemPendenteId] && (
+        <div className="bebidas-cadastro-preview">
+          <PreviewImagem arquivo={arquivos[imagemPendenteId]} />
+          <p>Imagem pendente para {bebidaPendente?.name ?? `bebida #${imagemPendenteId}`}.</p>
+          <button type="button" className="bebidas-btn bebidas-btn-secondary"
+            disabled={ocupado || !bebidaPendente} onClick={() => handleUploadImagem(imagemPendenteId)}>
+            {operacao?.tipo === "upload" && operacao.id === imagemPendenteId ? "Enviando..." : "Reenviar imagem"}
+          </button>
+          <button type="button" className="bebidas-btn bebidas-btn-secondary"
+            disabled={ocupado} onClick={() => removerArquivo(imagemPendenteId)}>Descartar imagem</button>
+        </div>
+      )}
+      {operacao && <p role="status">Processando operação…</p>}
+      {loading && <p role="status">Carregando produtos e categorias...</p>}
 
       {!loading && !erroCarregamento && categorias.length === 0 && (
         <p className="bebidas-alert bebidas-alert-error">Cadastre uma categoria antes de adicionar bebidas.</p>
       )}
 
-      {mostrarCadastro && !loading && categorias.length > 0 && (
+      {mostrarCadastro && (
         <section className="bebidas-panel" aria-label="Cadastrar nova bebida">
           <h2>Nova bebida</h2>
-          <form onSubmit={handleCadastrar}>
+          <form onSubmit={handleCadastrar} onKeyDown={(e) => {
+            if (e.key === "Escape" && !ocupado) {
+              setMostrarCadastro(false);
+              document.getElementById("nova-bebida")?.focus();
+            }
+          }}>
             {camposFormulario(cadastro, setCadastro, "cadastro")}
 
               <div className="bebidas-cadastro-imagem">
@@ -430,15 +381,9 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
                   />
                 </label>
 
-                {previewImagem && (
+                {imagemCadastro && (
                   <div className="bebidas-cadastro-preview">
-                    <ProductImage
-                      src={previewImagem}
-                      alt="Prévia da imagem selecionada"
-                      profile="preview"
-                      placeholder="Sem prévia"
-                      placeholderClassName="bebidas-preview-placeholder"
-                    />
+                    <PreviewImagem arquivo={imagemCadastro} />
 
                     <button
                       type="button"
@@ -459,19 +404,19 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
               </div>
 
             <div className="bebidas-actions">
-              <button className="bebidas-btn bebidas-btn-primary" type="submit" disabled={ocupado || !request}>
-                {operacao === "cadastro"
-                  ? "Cadastrando produto e imagem..."
+              <button className="bebidas-btn bebidas-btn-primary" type="submit" disabled={ocupado}>
+                {operacao?.tipo === "cadastro"
+                  ? "Processando cadastro..."
                   : "Cadastrar bebida"}
               </button>
               <button className="bebidas-btn bebidas-btn-secondary" type="button" disabled={ocupado}
-                onClick={() => setMostrarCadastro(false)}>Cancelar</button>
+                onClick={() => { setMostrarCadastro(false); document.getElementById("nova-bebida")?.focus(); }}>Cancelar</button>
             </div>
           </form>
         </section>
       )}
 
-      {!loading && !erroCarregamento && (
+      {consultaBebidas.data && (
         <section className="bebidas-panel" aria-label="Bebidas cadastradas">
           <div className="bebidas-list-heading">
             <div>
@@ -489,11 +434,11 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
             </label>
             <label className="bebidas-field" htmlFor="filtrar-categoria">
               <span>Categoria</span>
-              <select id="filtrar-categoria" value={filtroCategoria}
+              <select id="filtrar-categoria" value={categorias.some((item) => String(item.id) === filtroCategoria) ? filtroCategoria : ""}
                 onChange={(e) => setFiltroCategoria(e.target.value)}>
                 <option value="">Todas as categorias</option>
                 {categorias.map((categoria) => (
-                  <option key={categoria.id} value={categoria.name}>{categoria.name}</option>
+                  <option key={categoria.id} value={categoria.id}>{categoria.name}</option>
                 ))}
               </select>
             </label>
@@ -521,46 +466,54 @@ async function handleCadastrar(event: FormEvent<HTMLFormElement>) {
                     </div>
                     <div className="bebidas-product-actions">
                       <button type="button" className="bebidas-btn bebidas-btn-secondary"
-                        onClick={() => iniciarEdicao(bebida)} disabled={ocupado}>
+                        id={`editar-bebida-${bebida.id}`} onClick={() => iniciarEdicao(bebida)} disabled={ocupado}>
                         Editar
                       </button>
                       <button type="button" className="bebidas-btn bebidas-btn-danger"
-                        onClick={() => handleExcluir(bebida)} disabled={ocupado}>
-                        {operacao === "exclusao" && operacaoId === bebida.id ? "Excluindo..." : "Excluir"}
+                        onClick={() => handleExcluir(bebida)} disabled={ocupado} aria-label={`Excluir ${bebida.name}`}>
+                        {operacao?.tipo === "exclusao" && operacao.id === bebida.id ? "Excluindo..." : "Excluir"}
                       </button>
                     </div>
                   </div>
 
                   {editandoId === bebida.id && (
-                    <div className="bebidas-edit-panel">
+                    <form className="bebidas-edit-panel" onSubmit={(e) => { e.preventDefault(); void handleSalvarEdicao(bebida.id); }}
+                      onKeyDown={(e) => { if (e.key === "Escape" && !ocupado) cancelarEdicao(); }}>
                       <h4>Editar bebida</h4>
                       {camposFormulario(edicao, setEdicao, `editar-${bebida.id}`)}
                       <div className="bebidas-actions">
-                        <button className="bebidas-btn bebidas-btn-primary" type="button"
-                          onClick={() => handleSalvarEdicao(bebida.id)} disabled={ocupado || !request}>
-                          {operacao === "edicao" && operacaoId === bebida.id ? "Salvando..." : "Salvar alterações"}
+                        <button className="bebidas-btn bebidas-btn-primary" type="submit" disabled={ocupado}>
+                          {operacao?.tipo === "edicao" && operacao.id === bebida.id ? "Salvando..." : "Salvar alterações"}
                         </button>
                         <button className="bebidas-btn bebidas-btn-secondary" type="button"
                           onClick={cancelarEdicao} disabled={ocupado}>Cancelar</button>
                       </div>
-                    </div>
+                    </form>
                   )}
 
                   <div className="bebidas-upload">
                     <label className="bebidas-field" htmlFor={`imagem-${bebida.id}`}>
                       <span>{bebida.imageUrl ? "Substituir imagem" : "Adicionar imagem"}</span>
                       <input id={`imagem-${bebida.id}`} type="file" accept="image/jpeg,image/png,image/webp"
-                        ref={(element) => { arquivoInputs.current[bebida.id] = element; }}
                         disabled={ocupado}
                         onChange={(e) => {
                           const arquivo = e.target.files?.[0] ?? null;
-                          setArquivos((anteriores) => ({ ...anteriores, [bebida.id]: arquivo }));
+                          selecionarArquivo(bebida.id, arquivo);
+                          e.target.value = "";
                         }} />
                     </label>
+                    {arquivos[bebida.id] && (
+                      <div className="bebidas-cadastro-preview">
+                        <PreviewImagem arquivo={arquivos[bebida.id]} />
+                        <span>{arquivos[bebida.id].name}</span>
+                        <button className="bebidas-btn bebidas-btn-secondary" type="button"
+                          disabled={ocupado} onClick={() => removerArquivo(bebida.id)}>Remover seleção</button>
+                      </div>
+                    )}
                     <button className="bebidas-btn bebidas-btn-secondary" type="button"
-                      disabled={ocupado || !arquivos[bebida.id] || !request}
+                      disabled={ocupado || !arquivos[bebida.id]}
                       onClick={() => handleUploadImagem(bebida.id)}>
-                      {operacao === "upload" && operacaoId === bebida.id ? "Enviando..." : "Enviar imagem"}
+                      {operacao?.tipo === "upload" && operacao.id === bebida.id ? "Enviando..." : "Enviar imagem"}
                     </button>
                   </div>
                 </article>
